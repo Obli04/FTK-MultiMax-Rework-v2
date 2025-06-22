@@ -1,25 +1,26 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using System.Collections.Generic;
 using UnityEngine;
+using static FTK_MultiMax_Rework_v2.Main;
 
-namespace FTK_MultiMax_Rework {
-    public static class DummiesHandler {
-
+namespace FTK_MultiMax_Rework_v2 {
+    public class DummiesHandler {
+        
+        // [Polars Bear] TODO: Cleanup
         public static void CreateDummies() {
-            Debug.Log("MAKING DUMMIES");
+            Log("Making Dummies");
             List<GameObject> dummies = new List<GameObject>();
+            
             for (int j = 0; j < Mathf.Max(3, GameFlowMC.gMaxPlayers); j++) {
                 if (j < 3) {
                     dummies.Add(FTKHub.Instance.m_Dummies[j]);
                     continue;
                 }
-                GameObject copy2 = UnityEngine.Object.Instantiate(FTKHub.Instance.m_Dummies[2], FTKHub.Instance.m_Dummies[2].transform.parent);
+                GameObject copy2 = Object.Instantiate(FTKHub.Instance.m_Dummies[2], FTKHub.Instance.m_Dummies[2].transform.parent);
                 copy2.name = "Player " + (j + 1) + " Dummy";
                 copy2.GetComponent<PhotonView>().viewID = 3245 + j;
                 dummies.Add(copy2);
             }
+            
             for (int i = 0; i < Mathf.Max(3, GameFlowMC.gMaxEnemies); i++) {
                 if (i < 3) {
                     dummies.Add(FTKHub.Instance.m_Dummies[i + 3]);
@@ -30,9 +31,10 @@ namespace FTK_MultiMax_Rework {
                 copy.GetComponent<PhotonView>().viewID = 3045 + i;
                 dummies.Add(copy);
             }
+            
             FTKHub.Instance.m_Dummies = dummies.ToArray();
             GameObject[] dummies2 = FTKHub.Instance.m_Dummies;
-            Debug.Log("MultiMax - Done");
+            Log("Dummies created");
         }
 
         public static GameObject CreateDummy(GameObject[] source, int index, string prefix) {
@@ -40,7 +42,7 @@ namespace FTK_MultiMax_Rework {
             if (index < 3) {
                 dummy = source[index];
             } else {
-                dummy = UnityEngine.Object.Instantiate(source[2], source[2].transform.parent);
+                dummy = Object.Instantiate(source[2], source[2].transform.parent);
                 dummy.name = $"{prefix} {index + 1} Dummy";
                 dummy.GetComponent<PhotonView>().viewID = 3245 + index;
             }

@@ -1,14 +1,12 @@
-﻿using HarmonyLib;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Security.Cryptography.X509Certificates;
-using System.Text;
+﻿using FTK_MultiMax_Rework_v2.PatchHelpers;
+using static FTK_MultiMax_Rework_v2.PatchHelpers.PatchPositions;
 using UnityEngine;
-using static UnityEngine.UI.CanvasScaler;
 
-namespace FTK_MultiMax_Rework {
-    public static class EncounterSessionPatches {
+namespace FTK_MultiMax_Rework_v2.Patches {
+    [PatchType(typeof(EncounterSession))]
+    public class EncounterSessionPatches {
+        [PatchMethod("GiveOutLootXPGold")]
+        [PatchPosition(Prefix)]
         public static void XPModifierPatch(ref FTKPlayerID _recvPlayer, ref int _xp, ref int _gold) {
 
             CharacterOverworld characterOverworldByFid = FTKHub.Instance.GetCharacterOverworldByFID(_recvPlayer);
