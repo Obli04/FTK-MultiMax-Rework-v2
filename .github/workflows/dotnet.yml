@@ -40,7 +40,7 @@ jobs:
         # target triple.
         asset_name: program-name-${{ matrix.config.os }}
         # The path to the file you want to upload.
-        asset_path: ./path/to/your/file
+        asset_path: ./bin/Debug/FTK-MultiMax-Rework-v2.dll
         # probably you will need to change it, but most likely you are
         # uploading a binary file
         asset_content_type: application/octet-stream
