@@ -13,8 +13,8 @@ Needless to say, we've got some alright coverage now :D
 
 - (See MultiMax Rework for changes between the original and the first rework)
 - Bugfixes:
-  1. Exiting a session no longer forces you to restart the entire game
-  2. More to come, as soon as I can find the cause of some more bugs (please submit your own error logs, to help)
+  - Exiting a session no longer forces you to restart the entire game
+  - More to come, as soon as I can find the cause of some more bugs (please submit your own error logs, to help)
 
 ## How to install:
 
@@ -37,7 +37,7 @@ I'm hoping to fix this at some point, but for right now, it is what it is
 
 The mod does _work_ without the correct player amount configured, but some things (only visual, from what I've seen) get wonky.
 
-**N.B:** The configuration file is only generated after the game is launched with the mod enabled. Therefore, you might have to start then exit the game to configure the player amount. \
+**N.B:** The configuration file is only generated after the game is launched with the mod enabled. Therefore, you might have to start then exit the game to configure the player amount.
 
 ## Issues
 
