@@ -1,6 +1,6 @@
 # FTK MultiMax Rework V2
 
-This mod is a patched version (some pretty big bug fixes and code reorganization) of the mod "FTK MultiMax Rework" by [justedm](https://next.nexusmods.com/profile/justedm?gameId=2887) \
+This mod is a patched version (bugfixes and code reorganization) of the mod "FTK MultiMax Rework" by [justedm](https://next.nexusmods.com/profile/justedm?gameId=2887) \
 That mod itself was already a rework of "For The King Multi Max" by [samupo](https://next.nexusmods.com/profile/Samupo?gameId=2887)
 
 The concept remains the same: adventures with more than 3 players.
