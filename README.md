@@ -25,7 +25,7 @@ Use the [Thunderstore Mod Manager](https://thunderstore.io/package/ebkr/r2modman
 **Manual Method**
 
 1. Download and install [BepInEx](https://for-the-king.thunderstore.io/package/BepInEx/BepInExPack_ForTheKing/) by following their guide
-2. Download `FTK MultiMax Rework v2.dll` from the [Releases](https://github.com/PolarsBear/FTK-MultiMax-Rework-v2/releases) page or download the mod from [Thunderstore](https://for-the-king.thunderstore.io/package/edm/FTKMultiMaxRework/)
+2. Download `FTK MultiMax Rework v2.dll` from the [Releases](https://github.com/PolarsBear/FTK-MultiMax-Rework-v2/releases) page or download the mod from [Thunderstore](https://thunderstore.io/c/for-the-king/p/PolarsBear/FTK_MultiMax_Rework_v2/)
 3. Leave the file in the `BepInEx\plugins` folder
 4. Launch the game!
 
