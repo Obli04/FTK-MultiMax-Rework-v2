@@ -7,7 +7,7 @@ The concept remains the same: adventures with more than 3 players.
 
 justedm ran all their tests with 5 players, I ran all of mine with 4. \
 They ran all their tests on the Epic Games version. I ran all of mine on the Steam version. \
-Needless to say, we've got some alright coverage now :D
+Needless to say, we've got some alright coverage now
 
 **What has changed:**
 
