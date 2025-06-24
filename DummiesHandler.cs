@@ -26,14 +26,13 @@ namespace FTK_MultiMax_Rework_v2 {
                     dummies.Add(FTKHub.Instance.m_Dummies[i + 3]);
                     continue;
                 }
-                GameObject copy = UnityEngine.Object.Instantiate(FTKHub.Instance.m_Dummies[5], FTKHub.Instance.m_Dummies[5].transform.parent);
+                GameObject copy = Object.Instantiate(FTKHub.Instance.m_Dummies[5], FTKHub.Instance.m_Dummies[5].transform.parent);
                 copy.name = "Enemy " + (i + 1) + " Dummy";
                 copy.GetComponent<PhotonView>().viewID = 3045 + i;
                 dummies.Add(copy);
             }
             
             FTKHub.Instance.m_Dummies = dummies.ToArray();
-            GameObject[] dummies2 = FTKHub.Instance.m_Dummies;
             Log("Dummies created");
         }
 

@@ -14,6 +14,8 @@ Needless to say, we've got some alright coverage now
 - (See MultiMax Rework for changes between the original and the first rework)
 - Bugfixes:
   - Exiting a session no longer forces you to restart the entire game
+  - Fixed bug that caused crashes with 6+ players (now any amount should be fine)
+  - Fixed visual issue with player character order in fights/dungeons
   - More to come, as soon as I can find the cause of some more bugs (please submit your own error logs, to help)
 
 ## How to install:

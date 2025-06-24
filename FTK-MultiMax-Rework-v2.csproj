@@ -31,6 +31,10 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Test|AnyCPU' ">
+    <OutputPath>C:\Users\Lars\AppData\Roaming\r2modmanPlus-local\ForTheKing\profiles\Default\BepInEx\plugins\Unknown-FTK MultiMax Rework v2</OutputPath>
+    <Optimize>true</Optimize>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="0Harmony">
       <HintPath>..\..\..\AppData\Roaming\r2modmanPlus-local\ForTheKing\profiles\Default\BepInEx\core\0Harmony.dll</HintPath>
@@ -78,6 +82,8 @@
   <ItemGroup>
     <Compile Include="ConfigHandler.cs" />
     <Compile Include="DummiesHandler.cs" />
+    <Compile Include="TargetPositions.cs" />
+    <Compile Include="Patches\SceneDioramaPatches.cs" />
     <Compile Include="Patches\DioramaPatches.cs" />
     <Compile Include="Patches\EncounterSessionPatches.cs" />
     <Compile Include="Patches\PlayerHelperPatches.cs" />

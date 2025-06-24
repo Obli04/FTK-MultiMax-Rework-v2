@@ -1,7 +1,7 @@
 ﻿{
   "name": "FTK_MultiMax_Rework_v2",
   "description": "A few patches and bugfixes on justedm's MultiMax Rework. A rework of a rework!",
-  "version_number": "2.0.0",
+  "version_number": "2.1.0",
   "dependencies": [
     "BepInEx-BepInExPack_ForTheKing-5.4.19001"
   ],
