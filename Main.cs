@@ -13,7 +13,7 @@ namespace FTK_MultiMax_Rework_v2 {
     public class Main : BaseUnityPlugin {
         private const string pluginGuid = "polarsbear.ftk.multimaxrework.patched";
         private const string pluginName = "MultiMaxReworkV2";
-        private const string pluginVersion = "2.0";
+        private const string pluginVersion = "2.1";
 
         public static Harmony Harmony { get; } = new(pluginGuid);
 
@@ -23,7 +23,7 @@ namespace FTK_MultiMax_Rework_v2 {
         }
         
         public IEnumerator Start() {
-            Log("Initializing...");
+            Log("Initializing version " + pluginVersion + "...");
             ConfigHandler.InitializeConfig();
             ConfigHandler.InitializeMaxPlayers();
             Log("Finished initializing");

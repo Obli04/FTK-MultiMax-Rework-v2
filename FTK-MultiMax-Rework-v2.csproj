@@ -37,23 +37,26 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="0Harmony">
-      <HintPath>..\..\..\AppData\Roaming\r2modmanPlus-local\ForTheKing\profiles\Default\BepInEx\core\0Harmony.dll</HintPath>
+      <HintPath>E:\SteamLibrary\steamapps\common\For The King\BepInEx\core\0Harmony.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Assembly-CSharp">
-      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\For The King\FTK_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <HintPath>E:\SteamLibrary\steamapps\common\For The King\FTK_Data\Managed\Assembly-CSharp.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Assembly-CSharp-firstpass">
-      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\For The King\FTK_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
+      <HintPath>E:\SteamLibrary\steamapps\common\For The King\FTK_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="BepInEx">
-      <HintPath>..\..\..\AppData\Roaming\r2modmanPlus-local\ForTheKing\profiles\Default\BepInEx\core\BepInEx.dll</HintPath>
+      <HintPath>E:\SteamLibrary\steamapps\common\For The King\BepInEx\core\BepInEx.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="PlayMaker">
+      <HintPath>E:\SteamLibrary\steamapps\common\For The King\FTK_Data\Managed\PlayMaker.dll</HintPath>
+    </Reference>
     <Reference Include="Rewired_Core">
-      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\For The King\FTK_Data\Managed\Rewired_Core.dll</HintPath>
+      <HintPath>E:\SteamLibrary\steamapps\common\For The King\FTK_Data\Managed\Rewired_Core.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="System" />
@@ -63,19 +66,19 @@
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
     <Reference Include="UnityEngine">
-      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\For The King\FTK_Data\Managed\UnityEngine.dll</HintPath>
+      <HintPath>E:\SteamLibrary\steamapps\common\For The King\FTK_Data\Managed\UnityEngine.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine.CoreModule">
-      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\For The King\FTK_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+      <HintPath>E:\SteamLibrary\steamapps\common\For The King\FTK_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine.UI">
-      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\For The King\FTK_Data\Managed\UnityEngine.UI.dll</HintPath>
+      <HintPath>E:\SteamLibrary\steamapps\common\For The King\FTK_Data\Managed\UnityEngine.UI.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine.UIModule">
-      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\For The King\FTK_Data\Managed\UnityEngine.UIModule.dll</HintPath>
+      <HintPath>E:\SteamLibrary\steamapps\common\For The King\FTK_Data\Managed\UnityEngine.UIModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
   </ItemGroup>
