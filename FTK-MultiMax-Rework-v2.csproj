@@ -83,9 +83,8 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ConfigHandler.cs" />
-    <Compile Include="DummiesHandler.cs" />
-    <Compile Include="TargetPositions.cs" />
+    <Compile Include="Patches\EnemyScheduleFallbackPatches.cs" />
+    <Compile Include="Patches\enemySpawnPatches.cs" />
     <Compile Include="Patches\SceneDioramaPatches.cs" />
     <Compile Include="Patches\DioramaPatches.cs" />
     <Compile Include="Patches\EncounterSessionPatches.cs" />
@@ -104,14 +103,11 @@
     <Compile Include="PatchHelpers\PatchPositions.cs" />
     <Compile Include="PatchHelpers\PatchType.cs" />
     <Compile Include="PatchHelpers\PatchUtils.cs" />
-    <Compile Include="RoomHandler.cs" />
-    <Compile Include="Main.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="PackageResources\icon.png" />
     <Content Include="PackageResources\manifest.json" />
-    <Content Include="README.md" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
