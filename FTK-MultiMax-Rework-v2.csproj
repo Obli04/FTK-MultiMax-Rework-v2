@@ -83,12 +83,13 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Patches\EnemyScheduleFallbackPatches.cs" />
-    <Compile Include="Patches\enemySpawnPatches.cs" />
+    <Compile Include="Patches\enemies\EnemyScheduleFallbackPatches.cs" />
+    <Compile Include="Patches\enemies\enemySpawnPatches.cs" />
     <Compile Include="Patches\SceneDioramaPatches.cs" />
     <Compile Include="Patches\DioramaPatches.cs" />
-    <Compile Include="Patches\EncounterSessionPatches.cs" />
     <Compile Include="Patches\PlayerHelperPatches.cs" />
+    <Compile Include="Patches\enemies\spreadEnemiesPatches.cs" />
+    <Compile Include="Patches\shopPatches.cs" />
     <Compile Include="Patches\uiCharacterCreateRootPatches.cs" />
     <Compile Include="Patches\uiGoldMenuPatches.cs" />
     <Compile Include="Patches\uiHudScrollerPatches.cs" />
@@ -96,6 +97,7 @@
     <Compile Include="Patches\uiPopupMenuPatches.cs" />
     <Compile Include="Patches\uiPortraitHolderManagerPatches.cs" />
     <Compile Include="Patches\uiPortraitHolderPatches.cs" />
+    <Compile Include="Patches\enemies\uiSpreadEnemiesPatches.cs" />
     <Compile Include="Patches\uiStartGamePatches.cs" />
     <Compile Include="PatchHelpers\PatchMethod.cs" />
     <Compile Include="PatchHelpers\PatchParams.cs" />
