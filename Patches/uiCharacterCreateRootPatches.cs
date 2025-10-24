@@ -3,8 +3,6 @@ using static FTK_MultiMax_Rework_v2.PatchHelpers.PatchPositions;
 using UnityEngine;
 using System;
 using static FTK_MultiMax_Rework_v2.Main;
-// se vuoi evitare qualsiasi ambiguità, puoi anche aggiungere:
-// using Object = UnityEngine.Object;
 
 namespace FTK_MultiMax_Rework_v2.Patches
 {

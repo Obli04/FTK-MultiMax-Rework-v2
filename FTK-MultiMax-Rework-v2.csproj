@@ -69,6 +69,9 @@
       <HintPath>E:\SteamLibrary\steamapps\common\For The King\FTK_Data\Managed\UnityEngine.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="UnityEngine.AnimationModule">
+      <HintPath>E:\SteamLibrary\steamapps\common\For The King\FTK_Data\Managed\UnityEngine.AnimationModule.dll</HintPath>
+    </Reference>
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>E:\SteamLibrary\steamapps\common\For The King\FTK_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
       <Private>False</Private>
@@ -83,21 +86,25 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Patches\enemies\EnemyScheduleFallbackPatches.cs" />
-    <Compile Include="Patches\enemies\enemySpawnPatches.cs" />
+    <Compile Include="ConfigHandler.cs" />
+    <Compile Include="DummiesHandler.cs" />
+    <Compile Include="Main.cs" />
+    <Compile Include="Patches\DummyAttackSlideExpandPatch.cs" />
+    <Compile Include="Patches\enemySpawnPatches.cs" />
     <Compile Include="Patches\SceneDioramaPatches.cs" />
     <Compile Include="Patches\DioramaPatches.cs" />
     <Compile Include="Patches\PlayerHelperPatches.cs" />
-    <Compile Include="Patches\enemies\spreadEnemiesPatches.cs" />
+    <Compile Include="Patches\spreadEnemiesPatches.cs" />
     <Compile Include="Patches\shopPatches.cs" />
+    <Compile Include="Patches\targetQueuePatches.cs" />
     <Compile Include="Patches\uiCharacterCreateRootPatches.cs" />
+    <Compile Include="Patches\uiEnemyHUDPatches.cs" />
     <Compile Include="Patches\uiGoldMenuPatches.cs" />
     <Compile Include="Patches\uiHudScrollerPatches.cs" />
     <Compile Include="Patches\uiPlayerMainHudPatches.cs" />
     <Compile Include="Patches\uiPopupMenuPatches.cs" />
     <Compile Include="Patches\uiPortraitHolderManagerPatches.cs" />
     <Compile Include="Patches\uiPortraitHolderPatches.cs" />
-    <Compile Include="Patches\enemies\uiSpreadEnemiesPatches.cs" />
     <Compile Include="Patches\uiStartGamePatches.cs" />
     <Compile Include="PatchHelpers\PatchMethod.cs" />
     <Compile Include="PatchHelpers\PatchParams.cs" />
@@ -106,6 +113,8 @@
     <Compile Include="PatchHelpers\PatchType.cs" />
     <Compile Include="PatchHelpers\PatchUtils.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="RoomHandler.cs" />
+    <Compile Include="TargetPositions.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="PackageResources\icon.png" />

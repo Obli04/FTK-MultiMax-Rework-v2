@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-
-namespace FTK_MultiMax_Rework_v2 {
+﻿namespace FTK_MultiMax_Rework_v2 {
     public static class RoomHandler {
         public static bool CreateRoom(ref GameLogic __instance, string _roomName, bool _isOpen) {
             PhotonNetwork.offlineMode = false;

@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using FTK_MultiMax_Rework_v2.PatchHelpers;
-using JetBrains.Annotations;
 using UnityEngine;
 using static FTK_MultiMax_Rework_v2.Main;
 using static FTK_MultiMax_Rework_v2.PatchHelpers.PatchPositions;

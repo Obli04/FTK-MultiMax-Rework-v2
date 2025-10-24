@@ -47,17 +47,33 @@ namespace FTK_MultiMax_Rework_v2 {
 
             Log("Startup done");
         }
-        
+
         // Patch all methods with [PatchMethod(...)] attribute,
         // Inside of all classes with [PatchType(...)]
         // Very elegant, if I dare say so myself
         private void PatchMethods()
         {
             Assembly assembly = Assembly.GetExecutingAssembly();
-            
+
             foreach (Type type in assembly.GetTypesWithAttribute<PatchType>())
             {
                 PatchClass(type);
+            }
+        }
+        [HarmonyPatch(typeof(EncounterSessionMC))]
+        public static class DebugListMethodsPatch
+        {
+            [HarmonyPostfix]
+            [HarmonyPatch("Start")] // qualsiasi metodo sicuro che gira a inizio partita
+            public static void ListAllMethods()
+            {
+                foreach (var m in typeof(EncounterSessionMC).GetMethods(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public))
+                {
+                    if (m.Name.ToLower().Contains("init") || m.Name.ToLower().Contains("fight") || m.Name.ToLower().Contains("initiative"))
+                    {
+                        Log($"[MultiMax][Debug] Found method: {m}");
+                    }
+                }
             }
         }
     }

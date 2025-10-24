@@ -1,10 +1,6 @@
 ﻿using BepInEx.Configuration;
 using BepInEx;
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
 using UnityEngine;
 
 namespace FTK_MultiMax_Rework_v2 {

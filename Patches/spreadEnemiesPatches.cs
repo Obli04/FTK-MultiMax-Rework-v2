@@ -1,19 +1,20 @@
-using System;
 using System.Collections.Generic;
+using System.Collections;
+using System;
 using System.Text.RegularExpressions;
 using FTK_MultiMax_Rework_v2.PatchHelpers;
-using JetBrains.Annotations;
 using UnityEngine;
+using UnityEngine.Animations;
 using static FTK_MultiMax_Rework_v2.Main;
 using static FTK_MultiMax_Rework_v2.PatchHelpers.PatchPositions;
 using System.Reflection; // ← this fixes FieldInfo + BindingFlags
 using System.Linq;
-using UnityEngine.UI; 
 using Object = UnityEngine.Object;
 
 [PatchType(typeof(Diorama))]    
 public static class DioramaEnemyLayoutPatch
 {
+    
     [PatchMethod("_resetTargetQueue")]
     [PatchPosition(Postfix)]
     public static void OrderAndSpreadEnemies(ref Diorama __instance)
@@ -47,8 +48,8 @@ public static class DioramaEnemyLayoutPatch
 
         if (Mathf.Approximately(minX, maxX))
         {
-            minX -= 15.2f;
-            maxX += 15.2f;
+            minX -= 10.2f;
+            maxX += 10.2f;
         }
 
         float inset = 0.6f; // try 0.6–1.0 if you want more margin
@@ -147,7 +148,7 @@ public static class DioramaEnemyLayoutPatch
             float spacing;
             switch (targets.Count)
             {
-                case 4: spacing = 2.5f; break;  // closer for 4
+                case 4: spacing = 2.0f; break;  // closer for 4
                 case 5: spacing = 1.4f; break;  // tighter for 5
                 default: spacing = 1.2f; break;
             }
