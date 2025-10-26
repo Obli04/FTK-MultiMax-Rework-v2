@@ -52,6 +52,12 @@
       <HintPath>E:\SteamLibrary\steamapps\common\For The King\BepInEx\core\BepInEx.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>E:\SteamLibrary\steamapps\common\For The King\FTK_Data\Managed\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="Photon3Unity3D">
+      <HintPath>E:\SteamLibrary\steamapps\common\For The King\FTK_Data\Managed\Photon3Unity3D.dll</HintPath>
+    </Reference>
     <Reference Include="PlayMaker">
       <HintPath>E:\SteamLibrary\steamapps\common\For The King\FTK_Data\Managed\PlayMaker.dll</HintPath>
     </Reference>
@@ -94,7 +100,6 @@
     <Compile Include="Patches\SceneDioramaPatches.cs" />
     <Compile Include="Patches\DioramaPatches.cs" />
     <Compile Include="Patches\PlayerHelperPatches.cs" />
-    <Compile Include="Patches\spreadEnemiesPatches.cs" />
     <Compile Include="Patches\shopPatches.cs" />
     <Compile Include="Patches\targetQueuePatches.cs" />
     <Compile Include="Patches\uiCharacterCreateRootPatches.cs" />

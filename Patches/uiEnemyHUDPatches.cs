@@ -5,19 +5,12 @@ using UnityEngine;
 using FTK_MultiMax_Rework_v2.PatchHelpers;
 using static FTK_MultiMax_Rework_v2.Main;
 using static FTK_MultiMax_Rework_v2.PatchHelpers.PatchPositions;
+using System.Linq;
+using System.Reflection;
+using Object = UnityEngine.Object;
 
 namespace FTK_MultiMax_Rework_v2.Patches
 {
-    using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Text.RegularExpressions;
-using FTK_MultiMax_Rework_v2.PatchHelpers;
-using UnityEngine;
-using static FTK_MultiMax_Rework_v2.PatchHelpers.PatchPositions;
-using static FTK_MultiMax_Rework_v2.Main;
-using Object = UnityEngine.Object;
 
     [PatchType(typeof(Diorama))]
     public static class DioramaEnemyLayoutPatch
@@ -123,72 +116,150 @@ using Object = UnityEngine.Object;
             Log($"[MultiMax] Re-spaced {targets.Count} enemies (spacing {spacing})");
         }
     }
-    
     [PatchType(typeof(uiEnemyHUD))]
     public static class uiEnemyHUDPatch
     {
         [PatchMethod("InitializeEnemyHud")]
         [PatchPosition(Prefix)]
-        public static void SafeExpandHUDArray(uiEnemyHUD __instance, EnemyDummy _ed, int _index)
+        public static void SafeExpandHUDArray(uiEnemyHUD __instance, EnemyDummy _ed, ref int _index)
         {
             try
             {
-                int desired = Mathf.Max(GameFlowMC.gMaxEnemies, 3);
+                int desired = Mathf.Max(GameFlowMC.gMaxEnemies, 4);
                 var arr = __instance.m_EachEnemyHuds;
 
-                if (arr == null)
+                if (arr == null || arr.Length < desired)
                 {
-                    Log("[MultiMax] m_EachEnemyHuds is null, creating new array.");
-                    arr = new uiEachEnemyHud[desired];
-                }
-                else if (arr.Length < desired)
-                {
-                    Log($"[MultiMax] Expanding HUD array {arr.Length} → {desired}");
-
-                    // crea nuovo array e copia i precedenti
                     var newArr = new uiEachEnemyHud[desired];
-                    for (int i = 0; i < arr.Length; i++)
-                        newArr[i] = arr[i];
 
-                    // istanzia i nuovi HUD
-                    for (int i = arr.Length; i < desired; i++)
+                    if (arr != null)
+                    {
+                        for (int i = 0; i < arr.Length; i++)
+                            newArr[i] = arr[i];
+                    }
+
+                    for (int i = arr?.Length ?? 0; i < desired; i++)
                     {
                         var newHud = UnityEngine.Object.Instantiate(
                             __instance.m_EachEnemyHudsPrefab,
-                            __instance.transform.position,
-                            Quaternion.identity);
-                        newHud.transform.SetParent(__instance.m_GridRow, false);
+                            __instance.m_GridRow);
+
                         newHud.gameObject.SetActive(false);
                         newArr[i] = newHud;
                     }
 
                     __instance.m_EachEnemyHuds = newArr;
+                    Log($"[MultiMax] Expanded HUD array → {desired}");
                 }
 
-                // correzione: clamp dell’indice se troppo grande
-                if (_index >= __instance.m_EachEnemyHuds.Length)
+                // CRITICAL: Usa TurnIndex per allineamento HUD
+                if (_ed != null)
                 {
-                    Log($"[MultiMax] Clamping HUD index {_index} → {__instance.m_EachEnemyHuds.Length - 1}");
-                    _index = __instance.m_EachEnemyHuds.Length - 1;
+                    _index = _ed.FID.m_TurnIndex;
+                    _index = Mathf.Clamp(_index, 0, __instance.m_EachEnemyHuds.Length - 1);
+                    Log($"[MultiMax] HUD index for {_ed.name}: {_index}");
                 }
             }
             catch (Exception e)
             {
                 Log($"[MultiMax] uiEnemyHUDPatch error: {e}");
             }
-            var grid = __instance.m_GridRow;
-            if (grid != null)
+        }
+        [PatchType(typeof(uiEnemyHUD))]
+        public static class FixHUDOrderPatch
+        {
+            [PatchMethod("InitializeEnemyHud")]
+            [PatchPosition(Postfix)]
+            public static void ReorderHUDAfterInit(uiEnemyHUD __instance)
             {
-                var children = new List<RectTransform>();
-                foreach (Transform child in grid)
-                    children.Add(child as RectTransform);
-
-                float xOffset = 0f;
-                foreach (var child in children)
+                try
                 {
-                    child.anchoredPosition = new Vector2(xOffset, 0f);
-                    xOffset += 180f; // distanza orizzontale tra gli HUD
+                    if (__instance.m_EnemyHudDictionary == null || __instance.m_EnemyHudDictionary.Count == 0)
+                        return;
+
+                    // Ordina gli HUD in base al TurnIndex degli enemy dummy
+                    var orderedPairs = __instance.m_EnemyHudDictionary
+                        .Where(kv => kv.Key != null && kv.Value != null)
+                        .OrderBy(kv => kv.Key.FID.m_TurnIndex)
+                        .ToList();
+
+                    // Riposiziona visivamente gli HUD
+                    for (int i = 0; i < orderedPairs.Count; i++)
+                    {
+                        var hud = orderedPairs[i].Value;
+                        if (hud != null)
+                        {
+                            // Forza il sibling index per ordinare visivamente
+                            hud.transform.SetSiblingIndex(i);
+                        }
+                    }
+
+                    Log($"[MultiMax] HUD reordered by TurnIndex: {orderedPairs.Count} elements");
                 }
+                catch (Exception e)
+                {
+                    Log($"[MultiMax] ReorderHUDAfterInit error: {e}");
+                }
+            }
+        }
+
+        [PatchMethod("InitializeEnemyHud")]
+        [PatchPosition(Postfix)]
+        public static void RepositionHUDElements(uiEnemyHUD __instance)
+        {
+            try
+            {
+                var grid = __instance.m_GridRow;
+                if (grid == null)
+                    return;
+
+                int activeCount = 0;
+                foreach (var hud in __instance.m_EachEnemyHuds)
+                {
+                    if (hud != null && hud.gameObject.activeSelf)
+                        activeCount++;
+                }
+
+                if (activeCount == 0)
+                    return;
+
+                // Spaziatura ridotta per 4 nemici
+                float spacing = activeCount switch
+                {
+                    4 => 140f,
+                    5 => 120f,
+                    _ => 160f
+                };
+
+                // Centra gli HUD
+                float totalWidth = (activeCount - 1) * spacing;
+                float startX = -totalWidth * 0.5f;
+
+                int index = 0;
+                for (int i = 0; i < __instance.m_EachEnemyHuds.Length; i++)
+                {
+                    var hud = __instance.m_EachEnemyHuds[i];
+                    if (hud == null || !hud.gameObject.activeSelf)
+                        continue;
+
+                    var rect = hud.GetComponent<RectTransform>();
+                    if (rect != null)
+                    {
+                        rect.anchoredPosition = new Vector2(startX + index * spacing, 0f);
+
+                        // Ridimensiona leggermente per 4+ nemici
+                        float scale = activeCount >= 4 ? 0.9f : 1f;
+                        rect.localScale = Vector3.one * scale;
+
+                        index++;
+                    }
+                }
+
+                Log($"[MultiMax] Repositioned {activeCount} HUD elements (spacing {spacing})");
+            }
+            catch (Exception e)
+            {
+                Log($"[MultiMax] RepositionHUDElements error: {e}");
             }
         }
     }

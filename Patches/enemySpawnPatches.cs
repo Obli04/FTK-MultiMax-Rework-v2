@@ -9,92 +9,167 @@ using FTK_MultiMax_Rework_v2.PatchHelpers;
 using static FTK_MultiMax_Rework_v2.PatchHelpers.PatchPositions;
 using static FTK_MultiMax_Rework_v2.Main;
 using UnityEngine.Animations;
-using FTK_MultiMax_Rework_v2;
-
+using GridEditor;
+using Google2u;
+using Newtonsoft.Json;
 
 namespace FTK_MultiMax_Rework_v2.Patches
 {
     [PatchType(typeof(EncounterSession))]
-    public static class ExpandEnemyTypesPatch
+    public static class ForceExpandEnemyTypes
     {
         [PatchMethod("InitEnemyDummiesForCombat")]
         [PatchPosition(Prefix)]
-        public static void ExpandEnemies(ref string[] _enemyTypes)
+        public static void ExpandBeforeSpawn(
+            EncounterSession __instance,
+            ref string[] _enemyTypes)
         {
             try
             {
-                int desired = Mathf.Min(GameFlowMC.gMaxEnemies, 5);
-                if (_enemyTypes == null || _enemyTypes.Length == 0) return;
+                if (_enemyTypes == null || _enemyTypes.Length == 0)
+                    return;
 
-                List<string> list = new List<string>(_enemyTypes);
+                int playerCount = __instance.m_PlayerDummies?.Count ?? 4;
+                if (playerCount < 1) playerCount = 4;
 
-                // Ottieni lista globale di possibili nemici per il livello attuale
-                var enemyDB = FTK_enemyDB.GetAll(); // se non esiste, usa reflection su DB globale
-                var rng = new System.Random();
-
-                while (list.Count < desired)
+                if (_enemyTypes.Length >= playerCount)
                 {
-                    var rand = enemyDB[rng.Next(enemyDB.Count)];
-                    list.Add(rand.name);
+                    Log($"[MultiMax] Enemy types already sufficient: {_enemyTypes.Length}");
+                    return;
                 }
 
-                _enemyTypes = list.ToArray();
-                Debug.Log($"[MultiMax] Expanded enemies to {list.Count}: {string.Join(", ", list)}");
+                var expandedTypes = new List<string>();
+                for (int i = 0; i < playerCount; i++)
+                {
+                    expandedTypes.Add(_enemyTypes[i % _enemyTypes.Length]);
+                }
+
+                _enemyTypes = expandedTypes.ToArray();
+                Log($"[MultiMax] FORCED expansion in InitEnemyDummiesForCombat: {string.Join(", ", _enemyTypes)}");
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                Debug.LogError($"[MultiMax] ExpandEnemyTypesPatch error: {e}");
+                Log($"[MultiMax] ForceExpandEnemyTypes error: {ex.Message}\n{ex.StackTrace}");
             }
         }
     }
 
-    [PatchType(typeof(EncounterSession))]
-    static class EncounterSession_InitEnemyDummiesForCombat_Patch
+    // RIMOSSO ExpandInInitiateCurrentEncounter - duplicato di RandomizeEnemiesFromBiomePatch
+
+    [PatchType(typeof(EncounterSessionMC))]
+    public static class ExpandEnemyListBeforeDeserialize
     {
-        [PatchMethod("InitEnemyDummiesForCombat")]
-        [PatchPosition(Postfix)]
-        static void initEnemyDummiesforCombat(EncounterSession __instance, string[] _enemyTypes, bool _reuse, bool _softTransition)
+        [PatchMethod("InitiateEncounterSessionRPC")]
+        [PatchPosition(Prefix)]
+        public static void InitiateEncounter_ExpandEnemiesPrefix(
+            FTKPlayerID _thisPlayer,
+            FTKPlayerID[] _players,
+            ref string _sessionJSON,
+            ContinueFSM _cfsm)
         {
-            var dio = __instance.m_ActiveDiorama;               // Diorama instance
-            if (dio == null) return;
-
-            for (int idx = 0; idx < _enemyTypes.Length; idx++)
+            try
             {
-                // Get/ensure dummy
-                FTKPlayerID eid = new FTKPlayerID(idx, -1);
-                if (!__instance.m_EnemyDummies.TryGetValue(eid, out var dummy) || dummy == null)
-                    continue; // created by original, we just reposition
+                if (string.IsNullOrEmpty(_sessionJSON)) return;
 
-                // Ask Diorama for the next enemy slot
-                dio.EnemyPopTarget(out int dioramaIndex, out int dioramaID);
-                Transform slot = dio.GetTargetEnemy(dioramaID);
+                var settings = GameCache.Cache.JSON.GetTypicalSettings();
+                var sessionData = JsonConvert.DeserializeObject(_sessionJSON, typeof(EncounterSessionData), settings) as EncounterSessionData;
+                if (sessionData == null || sessionData.EncounterDatas == null || sessionData.EncounterDatas.Count == 0)
+                    return;
 
-                // Place visually
-                var t = dummy.transform;
-                t.position = slot.position;
-                t.rotation = slot.rotation;
+                int playerCount = Math.Max(1, _players?.Length ?? 1);
+                int totalChanged = 0;
 
-                // Optional: orient to face players’ center
-                var look = dio.GetCenterTargetPlayer();
-                if (look != null)
-                    t.LookAt(look.position, Vector3.up);
+                foreach (var enc in sessionData.EncounterDatas)
+                {
+                    if (enc == null) continue;
+                    if (enc.EncounterType != MiniHexDungeon.EncounterType.Enemy)
+                        continue;
+
+                    var types = enc.EnemyTypes;
+                    if (types == null || types.Length == 0)
+                        continue;
+
+                    var list = new List<string>();
+                    for (int i = 0; i < playerCount; i++)
+                    {
+                        list.Add(types[i % types.Length]);
+                    }
+
+                    enc.EnemyTypes = list.ToArray();
+                    totalChanged++;
+                    Log($"[MultiMax] Encounter expanded: {string.Join(", ", enc.EnemyTypes)}");
+                }
+
+                if (totalChanged > 0)
+                {
+                    _sessionJSON = JsonConvert.SerializeObject(sessionData, settings);
+                    Log($"[MultiMax] Expanded {totalChanged} encounter(s) → {playerCount} enemies each");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log($"[MultiMax] ExpandEnemyList error: {ex.Message}\n{ex.StackTrace}");
             }
         }
     }
+
+    [PatchType(typeof(EncounterSessionMC))]
+    static class EnsureFullEnemyListPatch
+    {
+        [PatchMethod("InitiateEncounterSessionRPC")]
+        [PatchPosition(Postfix)]
+        public static void ExpandEnemiesAfterInit(
+            EncounterSessionMC __instance,
+            FTKPlayerID[] _players)
+        {
+            try
+            {
+                var sessionData = __instance.m_SessionData;
+                if (sessionData == null || sessionData.EncounterDatas == null || sessionData.EncounterDatas.Count == 0)
+                    return;
+
+                int playerCount = Math.Max(1, _players?.Length ?? 1);
+
+                foreach (var encounter in sessionData.EncounterDatas)
+                {
+                    if (encounter == null) continue;
+                    if (encounter.EncounterType != MiniHexDungeon.EncounterType.Enemy)
+                        continue;
+
+                    var types = encounter.EnemyTypes;
+                    if (types == null || types.Length == 0)
+                        continue;
+
+                    var newList = new List<string>();
+                    for (int i = 0; i < playerCount; i++)
+                    {
+                        newList.Add(types[i % types.Length]);
+                    }
+
+                    encounter.EnemyTypes = newList.ToArray();
+                    Log($"[MultiMax] PostInit enemy list: {string.Join(", ", encounter.EnemyTypes)}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log($"[MultiMax] PostInit expand error: {ex.Message}");
+            }
+        }
+    }
+
     [PatchType(typeof(Diorama))]
     static class Diorama_ResetTargetQueue_Patch
     {
         [PatchMethod("_resetTargetQueue")]
         [PatchPosition(Postfix)]
-        static void resetTargetPatch(Diorama __instance)
+        public static void resetTargetPatch(Diorama __instance)
         {
-            // enemy count the diorama planned for
             var bf = BindingFlags.Instance | BindingFlags.NonPublic;
-            int enemyCount = (int)typeof(Diorama)
-                .GetProperty("_dioramaEnemyCount", bf | BindingFlags.Public)
-                .GetValue(__instance, null);
+            int enemyCount = 0;
+            var enemyProp = typeof(Diorama).GetProperty("_dioramaEnemyCount", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (enemyProp != null)
+                enemyCount = (int)(enemyProp.GetValue(__instance, null) ?? 0);
 
-            // 1) Resize player slides
             foreach (var tr in __instance.m_PlayerTargets)
             {
                 var slide = tr.GetComponent<DummyAttackSlide>();
@@ -103,23 +178,22 @@ namespace FTK_MultiMax_Rework_v2.Patches
                     slide.m_Distances = new float[enemyCount];
             }
 
-            // 2) Resize enemy slides (they also hold distances to players)
             foreach (var tr in __instance.m_EnemyTargets)
             {
                 var slide = tr.GetComponent<DummyAttackSlide>();
                 if (slide == null) continue;
-                // Players count used for enemy->player distances
-                int playerCount = (int)typeof(Diorama)
-                    .GetProperty("_dioramaPlayerCount", bf | BindingFlags.Public)
-                    .GetValue(__instance, null);
 
-                if (playerCount < 1) playerCount = __instance.m_PlayerTargets.Count;
 
-                if (slide.m_Distances == null || slide.m_Distances.Length < playerCount)
-                    slide.m_Distances = new float[playerCount];
+                int playerCount = 0;
+                var playerProp = typeof(Diorama).GetProperty("_dioramaPlayerCount", BindingFlags.NonPublic | BindingFlags.Instance);
+                if (playerProp != null)
+                    playerCount = (int)(playerProp.GetValue(__instance, null) ?? 0);
+                if (playerCount < 1)
+                    playerCount = __instance.m_PlayerTargets.Count;
             }
         }
     }
+
     [PatchType(typeof(EnemyDummy))]
     public static class EnsureAttackSlidePatch
     {
@@ -151,10 +225,8 @@ namespace FTK_MultiMax_Rework_v2.Patches
                     Debug.Log($"[MultiMax] Rebuilt attack slide distances for {__instance.name} ({slide.m_Distances.Length})");
                 }
 
-                // Assign to dummy
                 __instance.m_AttackSlide = slide;
 
-                // Ensure valid diorama index
                 if (__instance.m_DioramaTargetIndex < 0 || __instance.m_DioramaTargetIndex >= (diorama.m_EnemyTargets?.Count ?? 0))
                 {
                     __instance.m_DioramaTargetIndex = Mathf.Min((diorama.m_EnemyTargets?.Count ?? 1) - 1, 0);
@@ -167,47 +239,34 @@ namespace FTK_MultiMax_Rework_v2.Patches
             }
         }
     }
-
-    [PatchType(typeof(EnemyDummy))]
-    public static class EnemyDummy_EngageBattle_NonOwnerFix
-    {
-        [PatchMethod("EngageBattle")]
-        [PatchPosition(Postfix)]
-        public static void ForceEngageForNonOwner(EnemyDummy __instance)
-        {
-            try
-            {
-                // Only for enemies (not players) that didn't pass the vanilla IsOwner gate
-                if (!__instance.FID.IsPlayer() && !__instance.IsOwner)
-                {
-                    var fsm = __instance.m_EngageBattleFSM;
-                    if (fsm != null)
-                    {
-                        if (!fsm.gameObject.activeSelf)
-                            fsm.gameObject.SetActive(true);
-
-                        fsm.SendEvent("BattleEngage");
-                        Debug.Log($"[MultiMax] Forced EngageBattle FSM on non-owner for {__instance.name}");
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"[MultiMax] ForceEngageForNonOwner error: {e}");
-            }
-        }
-    }
-
-    [PatchType(typeof(EnemyDummy))]
-    public static class EnemyDummy_EngageBattle_Fix
+    [PatchType(typeof(CharacterDummy))]
+    public static class Guard_EngageBattle_WhenNoTargets
     {
         [PatchMethod("EngageBattle")]
         [PatchPosition(Prefix)]
-        public static void EnsureCameraTarget(EnemyDummy __instance)
+        public static bool Guard(CharacterDummy __instance, int _randomCheck, bool _isFirstAttack, FTKPlayerID _playerVictim, bool _cheerIfDie)
+        {
+            var enc = EncounterSession.Instance;
+            if (enc?.m_EnemyDummies == null) return true;
+
+            bool anyAlive = enc.m_EnemyDummies.Values.Any(d => d != null && d.m_IsAlive && d.m_CurrentHealth > 0);
+            if (!anyAlive)
+            {
+                Log("[MultiMax] 0 enemy alive → skip EngageBattle");
+                return false; // niente camera/stepout
+            }
+            return true;
+        }
+    }
+    [PatchType(typeof(CharacterDummy))]
+    public static class CharacterDummy_EngageBattle_Fixes
+    {
+        [PatchMethod("EngageBattle")]
+        [PatchPosition(Prefix)]
+        public static void EnsureCameraTarget(CharacterDummy __instance, int _randomCheck, bool _isFirstAttack, FTKPlayerID _playerVictim, bool _cheerIfDie)
         {
             try
             {
-                // Usa il manager corretto
                 var camManager = GameObject.FindObjectOfType<CameraCutManager>();
                 if (camManager == null) return;
 
@@ -219,6 +278,7 @@ namespace FTK_MultiMax_Rework_v2.Patches
                     field.SetValue(camManager, __instance);
                     Debug.Log($"[MultiMax] Forced camera target to {__instance.name}");
                 }
+
             }
             catch (Exception e)
             {
@@ -228,20 +288,26 @@ namespace FTK_MultiMax_Rework_v2.Patches
 
         [PatchMethod("EngageBattle")]
         [PatchPosition(Postfix)]
-        public static void ForceEngageForNonOwner(EnemyDummy __instance)
+        public static void ForceEngageForNonOwner(CharacterDummy __instance)
         {
             try
             {
-                if (!__instance.FID.IsPlayer() && !__instance.IsOwner)
+                var enemy = __instance as EnemyDummy;
+                if (enemy != null && !enemy.FID.IsPlayer() && !enemy.IsOwner)
                 {
-                    var fsm = __instance.m_EngageBattleFSM;
+                    var fsm = enemy.m_EngageBattleFSM;
                     if (fsm != null)
                     {
                         if (!fsm.gameObject.activeSelf)
                             fsm.gameObject.SetActive(true);
-
+                        if (enemy != null && !enemy.FID.IsPlayer() && !enemy.IsOwner)
+                        {
+                            var enc = EncounterSession.Instance;
+                            if (enc?.m_EnemyDummies == null || !enc.m_EnemyDummies.Values.Any(d => d != null && d.m_IsAlive && d.m_CurrentHealth > 0))
+                                return;
+                        }
                         fsm.SendEvent("BattleEngage");
-                        Debug.Log($"[MultiMax] Forced EngageBattle FSM on non-owner for {__instance.name}");
+                        Debug.Log($"[MultiMax] Forced EngageBattle FSM on non-owner for {enemy.name}");
                     }
                 }
             }
@@ -251,82 +317,210 @@ namespace FTK_MultiMax_Rework_v2.Patches
             }
         }
     }
-    [PatchType(typeof(EnemyDummy))]
-    public static class EnemyDeathStatusFix
-    {
-        [PatchMethod("RespondToHit")]
-        [PatchPosition(Postfix)]
-        public static void MarkEnemyDead(EnemyDummy __instance)
-        {
-            try
-            {
-                if (__instance.m_CurrentHealth <= 0f)
-                {
-                    var encounter = EncounterSessionMC.Instance;
-                    if (encounter == null) return;
-
-                    var statuses = encounter.GetType().GetField("m_EnemyStatuses",
-                        BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
-                        ?.GetValue(encounter) as IDictionary;
-                    if (statuses == null) return;
-
-                    if (statuses.Contains(__instance.FID))
-                    {
-                        var status = statuses[__instance.FID];
-                        var aliveField = status.GetType().GetField("m_Alive",
-                            BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
-                        if (aliveField != null)
-                        {
-                            aliveField.SetValue(status, false);
-                            Debug.Log($"[MultiMax] Marked {__instance.name} as dead in EnemyStatuses");
-                        }
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"[MultiMax] EnemyDeathStatusFix error: {e}");
-            }
-        }
-    }
-
     [PatchType(typeof(EncounterSessionMC))]
-    public static class FixEnemyEngageBattleGlobals
+    public static class FixBattleEndConsistency
     {
         [PatchMethod("StartNextCombatRound2")]
         [PatchPosition(Prefix)]
-        public static void FixEnemyGlobalsPreBattle(EncounterSessionMC __instance)
+        public static void CleanDeadReferences(EncounterSessionMC __instance)
         {
             try
             {
-                var encounter = EncounterSession.Instance;
-                if (encounter == null || encounter.m_EnemyDummies == null)
-                    return;
+                var enc = EncounterSession.Instance;
+                if (enc == null || enc.m_EnemyDummies == null) return;
 
-                foreach (var kv in encounter.m_EnemyDummies)
+                // 1️⃣ Remove null or dead enemies from dictionaries
+                var keysToRemove = enc.m_EnemyDummies
+                    .Where(kv => kv.Value == null || !kv.Value.m_IsAlive || kv.Value.m_CurrentHealth <= 0)
+                    .Select(kv => kv.Key)
+                    .ToList();
+
+                // 2️⃣ Purge FightOrder of any removed or dead enemies
+                var field = typeof(EncounterSessionMC).GetField("m_FightOrder",
+                    BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+                var fightOrder = field?.GetValue(__instance) as IList;
+                if (fightOrder != null)
                 {
-                    var fid = kv.Key;
-                    var dummy = kv.Value;
-                    if (dummy == null || !dummy.m_IsAlive)
-                        continue;
+                    var toRemove = new List<object>();
+                    foreach (var entry in fightOrder)
+                    {
+                        var pidField = entry.GetType().GetField("m_Pid");
+                        var pid = pidField?.GetValue(entry);
+                        if (pid == null) continue;
 
-                    // Assign FSM globals explicitly before the coroutine runs
-                    FTKUtil.SetFSMGlobalGameObject("goEnemyDummy", dummy.gameObject);
-                    FTKUtil.SetFSMGlobalObject("compEnemyDummy", dummy);
+                        bool isEnemy = (bool)pid.GetType().GetMethod("IsEnemy").Invoke(pid, null);
+                        if (!isEnemy) continue;
 
-                    // Defensive: also assign goCombatDummy for enemy-side FSMs
-                    FTKUtil.SetFSMGlobalGameObject("goCombatDummy", dummy.gameObject);
-                    FTKUtil.SetFSMGlobalObject("compCombatDummy", dummy);
+                        if (!enc.m_EnemyDummies.ContainsKey((FTKPlayerID)pid))
+                            toRemove.Add(entry);
+                    }
 
-                    Debug.Log($"[MultiMax] Synced FSM globals for {dummy.name} (TurnIndex {fid.m_TurnIndex})");
+                    foreach (var dead in toRemove)
+                        fightOrder.Remove(dead);
                 }
+
+                // 3️⃣ Log sanity check
+                Log($"[MultiMax] Purged {keysToRemove.Count} dead enemies, fight order now clean ({enc.m_EnemyDummies.Count} left)");
             }
             catch (Exception e)
             {
-                Debug.LogError($"[MultiMax] FixEnemyGlobalsPreBattle error: {e}");
+                Debug.LogError($"[MultiMax] FixBattleEndConsistency error: {e}");
             }
         }
     }
+    // B) Initiative: rimuovi morti, non aggiungere se nessun vivo
+    [PatchType(typeof(EncounterSessionMC))]
+    static class ComputeCombatInitiativePatch_Safe
+    {
+        [PatchMethod("ComputeCombatInitiative")]
+        [PatchPosition(Postfix)]
+        public static void FilterDead(EncounterSessionMC __instance, ref List<FTKPlayerID> __result)
+        {
+            var enc = EncounterSession.Instance;
+            if (enc?.m_EnemyDummies == null) return;
+
+            // rimuovi PIDs di nemici morti
+            var deadEnemies = new HashSet<FTKPlayerID>(
+                enc.m_EnemyDummies.Where(p => p.Value == null || !p.Value.m_IsAlive || p.Value.m_CurrentHealth <= 0)
+                                  .Select(p => p.Key)
+            );
+            __result.RemoveAll(pid => deadEnemies.Contains(pid));
+
+            // se NON esistono nemici vivi, non aggiungere nulla
+            bool anyAlive = enc.m_EnemyDummies.Any(p => p.Value != null && p.Value.m_IsAlive && p.Value.m_CurrentHealth > 0);
+            if (!anyAlive) return;
+
+            // (opz.) assicurati che i vivi ci siano
+            var alive = new HashSet<FTKPlayerID>(__result);
+            foreach (var kv in enc.m_EnemyDummies)
+                if (kv.Value != null && kv.Value.m_IsAlive && kv.Value.m_CurrentHealth > 0 && alive.Add(kv.Key))
+                    __result.Add(kv.Key);
+        }
+    }
+    
+    [PatchType(typeof(CharacterDummy))]
+    static class CharacterDummy_EngageAttack_Guard
+    {
+        [PatchMethod("EngageAttack")]
+        [PatchPosition(Prefix)]
+        public static bool GuardNoTargets(CharacterDummy __instance)
+        {
+            var enc = EncounterSession.Instance;
+            if (enc?.m_EnemyDummies == null) return true;
+
+            bool anyAlive = enc.m_EnemyDummies.Values.Any(d => d != null && d.m_IsAlive && d.m_CurrentHealth > 0);
+            if (!anyAlive)
+            {   
+                Log("[MultiMax] No enemy targets → skip EngageAttack");
+                return false; // salta originale, lascia che UpdateTime_CR chiuda
+            }
+            return true;
+        }
+    }
+
+    // C) Fight order: sincronizza solo vivi
+    [PatchType(typeof(EncounterSessionMC))]
+    static class FixFightOrderRPCPatch_Safe
+    {
+        [PatchMethod("CommenceBattleRPC")]
+        [PatchPosition(Postfix)]
+        public static void RebuildFightOrderAliveOnly(EncounterSessionMC __instance)
+        {
+            const BindingFlags BF = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+            var field = typeof(EncounterSessionMC).GetField("m_FightOrder", BF);
+            var fightOrder = field?.GetValue(__instance) as List<EncounterSessionMC.FightOrderEntry>;
+            if (fightOrder == null) return;
+
+            var enc = EncounterSession.Instance;
+            if (enc?.m_EnemyDummies == null) return;
+
+            // togli voci morte
+            fightOrder.RemoveAll(e =>
+            {
+                if (!e.m_Pid.IsEnemy()) return false;
+                return !enc.m_EnemyDummies.TryGetValue(e.m_Pid, out var d) || d == null || !d.m_IsAlive || d.m_CurrentHealth <= 0;
+            });
+
+            // (opz.) aggiungi eventuali vivi mancanti
+            var existing = new HashSet<FTKPlayerID>(fightOrder.Select(x => x.m_Pid));
+            var ctor = typeof(EncounterSessionMC.FightOrderEntry).GetConstructor(new[] { typeof(FTKPlayerID), typeof(int) });
+            int idx = fightOrder.Count;
+            foreach (var kv in enc.m_EnemyDummies)
+            {
+                var d = kv.Value;
+                if (d != null && d.m_IsAlive && d.m_CurrentHealth > 0 && existing.Add(kv.Key))
+                    fightOrder.Add((EncounterSessionMC.FightOrderEntry)ctor.Invoke(new object[] { kv.Key, idx++ }));
+            }
+        }
+    }
+    [PatchType(typeof(CharacterDummy))]
+    public static class MarkEnemyDead_EnsureStatus
+    {
+        [PatchMethod("RespondToHit")]
+        [PatchPosition(Postfix)]
+        public static void EnsureEnemyStatusOnDeath(CharacterDummy __instance, bool _mainVictim)
+        {
+            try
+            {
+                var enemy = __instance as EnemyDummy;
+                if (enemy == null) return;
+
+                // Only act if REALLY dead
+                if (enemy.m_IsAlive || enemy.m_CurrentHealth > 0) return;
+
+                var mc = EncounterSessionMC.Instance;
+                if (mc == null) return;
+                if (!_mainVictim) return;
+                // Only if the status exists and is still alive
+                var statusesFld = typeof(EncounterSessionMC).GetField("m_EnemyStatuses", BindingFlags.Instance | BindingFlags.NonPublic);
+                var statuses = statusesFld?.GetValue(mc) as IDictionary;
+                if (statuses != null && statuses.Contains(enemy.FID))
+                {
+                    var status = statuses[enemy.FID];
+                    var aliveFld = status.GetType().GetField("m_Alive", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+                    if (aliveFld != null && (bool)aliveFld.GetValue(status) == false) return; // already marked dead
+                }
+                EncounterSessionMC.Instance.RPCAllViaServer("CombatEnemyDie", new object[] { enemy.FID, mc.m_PlayerAttacker });
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[MultiMax] EnsureEnemyStatusOnDeath error: {e}");
+            }
+        }
+    }
+    [PatchType(typeof(uiActiveTime))]
+    public static class SafeUIActiveTimePatch
+    {
+        [PatchMethod("Update")]
+        [PatchPosition(Prefix)]
+        public static bool SafeUpdate(uiActiveTime __instance)
+        {
+            var enc = EncounterSession.Instance;
+            if (enc?.m_EnemyDummies == null) return true;
+
+            bool anyAlive = enc.m_EnemyDummies.Values.Any(d => d != null && d.m_IsAlive && d.m_CurrentHealth > 0);
+            if (!anyAlive)
+            {
+                // clear HUD highlights safely
+                if (uiEnemyHUD.Instance != null)
+                {
+                    foreach (var hud in uiEnemyHUD.Instance.m_EnemyHudDictionary.Values)
+                        hud?.SetCurrent(false);
+                }
+
+                foreach (var kv in __instance.m_ATPortraitTable)
+                    kv.Value?.SetCurrent(false);
+
+                var stance = GameObject.FindObjectOfType<uiBattleStanceButtons>();
+                stance?.gameObject?.SetActive(false);
+
+                return false; // skip original Update
+            }
+
+            return true; // let vanilla update run
+        }
+    }
+
     [PatchType(typeof(EncounterSessionMC))]
     public static class DioramaSyncPatch
     {
@@ -342,7 +536,6 @@ namespace FTK_MultiMax_Rework_v2.Patches
                 var enemies = EncounterSession.Instance?.m_EnemyDummies;
                 if (enemies == null) return;
 
-                // Expand list safely
                 while (diorama.m_EnemyTargets.Count < enemies.Count)
                 {
                     var prefab = diorama.m_EnemyTargets[0];
@@ -351,21 +544,24 @@ namespace FTK_MultiMax_Rework_v2.Patches
                     diorama.m_EnemyTargets.Add(clone);
                 }
 
-                // Update transforms for each dummy
-                int idx = 0;
-                foreach (var kv in enemies)
-                {
-                    var dummy = kv.Value;
-                    if (dummy == null) continue;
-                    if (idx >= diorama.m_EnemyTargets.Count) break;
+                var enemyList = enemies.Values
+                    .Where(e => e != null)
+                    .OrderBy(e => e.FID.m_TurnIndex)
+                    .ToList();
 
-                    var target = diorama.m_EnemyTargets[idx];
+                for (int i = 0; i < enemyList.Count; i++)
+                {
+                    if (i >= diorama.m_EnemyTargets.Count) break;
+
+                    var dummy = enemyList[i];
+                    var target = diorama.m_EnemyTargets[i];
+
                     dummy.transform.position = target.position;
                     dummy.transform.rotation = target.rotation;
-                    idx++;
+                    dummy.m_DioramaTargetIndex = i;
                 }
 
-                Debug.Log($"[MultiMax] Diorama targets resynced: {diorama.m_EnemyTargets.Count}");
+                Debug.Log($"[MultiMax] Diorama targets resynced and ordered: {enemyList.Count}");
             }
             catch (Exception e)
             {
@@ -373,6 +569,7 @@ namespace FTK_MultiMax_Rework_v2.Patches
             }
         }
     }
+
     [PatchType(typeof(EncounterSessionMC))]
     public static class EnsureEnemyVictimsPatch
     {
@@ -396,7 +593,6 @@ namespace FTK_MultiMax_Rework_v2.Patches
                     var dummy = kv.Value;
                     if (dummy == null) continue;
 
-                    // Assign a fallback victim if missing
                     if (dummy.m_CurrentVictimID == null ||
                         !EncounterSession.Instance.m_Dummies.ContainsKey(dummy.m_CurrentVictimID))
                     {
@@ -411,147 +607,49 @@ namespace FTK_MultiMax_Rework_v2.Patches
             }
         }
     }
-    [PatchType(typeof(EncounterSessionMC))]
-    public static class ExpandEnemyStatusesPatch
+
+    [PatchType(typeof(EncounterSession))]
+    public static class SafeTurnOffEnemyMarkersPatch
     {
-        [PatchMethod("InitiateCurrentEncounter")]
-        [PatchPosition(Postfix)]
-        public static void AfterInitiateEncounter(EncounterSessionMC __instance)
+        [PatchMethod("TurnOffAllEnemyMarkers")]
+        [PatchPosition(Prefix)]
+        public static bool SafeTurnOffMarkers(EncounterSession __instance)
         {
             try
             {
-                const BindingFlags BF = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-                var fldStatuses = __instance.GetType().GetField("m_EnemyStatuses", BF);
-                if (fldStatuses == null) return;
+                if (__instance.m_EnemyDummies == null)
+                    return false;
 
-                var statuses = fldStatuses.GetValue(__instance) as IDictionary;
-                if (statuses == null) return;
-
-                // Just a debug count log
-                Debug.Log($"[MultiMax] EnemyStatuses count after init: {statuses.Count}");
-
-                // Example: Expand to match all combatants
-                var fldAll = __instance.GetType().GetField("m_AllCombtatants", BF);
-                if (fldAll == null) return;
-                var combatants = fldAll.GetValue(__instance) as Array;
-                if (combatants == null) return;
-
-                foreach (var obj in combatants)
+                foreach (var kv in __instance.m_EnemyDummies)
                 {
-                    var pid = obj; // FTKPlayerID struct
-                    if (pid == null) continue;
+                    var dummy = kv.Value;
+                    if (dummy == null)
+                        continue;
 
-                    // skip players
-                    var isEnemy = (bool)pid.GetType().GetMethod("IsPlayer").Invoke(pid, null) == false;
-                    if (!isEnemy) continue;
+                    // Usa reflection per accedere a m_EnemyMarker
+                    var markerField = typeof(EnemyDummy).GetField("m_EnemyMarker",
+                        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
-                    if (!statuses.Contains(pid))
-                    {
-                        var ctor = typeof(EncounterSessionMC)
-                            .GetNestedType("EnemyStatus", BF)
-                            ?.GetConstructor(new[] { typeof(string), typeof(HexLandID), typeof(bool), typeof(int) });
+                    if (markerField == null)
+                        continue;
 
-                        if (ctor == null) continue;
+                    var marker = markerField.GetValue(dummy);
+                    if (marker == null)
+                        continue;
 
-                        var status = ctor.Invoke(new object[] { "enemy_default", null, true, 0 });
-                        statuses[pid] = status;
-                        Debug.Log($"[MultiMax] Added missing EnemyStatus for dummy {pid}");
-                    }
+                    // Chiama TurnOff sul marker
+                    var turnOffMethod = marker.GetType().GetMethod("TurnOff",
+                        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+                    turnOffMethod?.Invoke(marker, null);
                 }
+
+                return false;
             }
             catch (Exception e)
             {
-                Debug.LogError($"[MultiMax] ExpandEnemyStatusesPatch failed: {e}");
-            }
-        }
-    }
-    [PatchType(typeof(EncounterSessionMC))]
-    public static class ComputeCombatInitiativePatch
-    {
-        [PatchMethod("ComputeCombatInitiative")]
-        [PatchPosition(Postfix)]
-        public static void computeCombatInitiative(EncounterSessionMC __instance, ref List<FTKPlayerID> __result)
-        {
-            try
-            {
-                const BindingFlags BF = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.FlattenHierarchy;
-
-                // Enemy dummies live on the base EncounterSession instance:
-                var enemies = EncounterSession.Instance?.m_EnemyDummies;
-                if (enemies == null) return;
-
-                var set = new HashSet<FTKPlayerID>(__result);
-                foreach (var kv in enemies)
-                    if (kv.Value != null && kv.Value.m_IsAlive && set.Add(kv.Key))
-                        __result.Add(kv.Key);
-
-                Debug.Log($"[MultiMax] ComputeCombatInitiative expanded to {__result.Count} entries.");
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"[MultiMax] ComputeCombatInitiativePatch error: {e}");
-            }
-        }
-    }
-    [PatchType(typeof(EncounterSessionMC))]
-    public static class FixFightOrderRPCPatch
-    {
-        [PatchMethod("CommenceBattleRPC")]
-        [PatchPosition(Postfix)]
-        public static void CommenceBattleRPC_Postfix(EncounterSessionMC __instance, FTKPlayerID[] _fightOrder)
-        {
-            try
-            {
-                const BindingFlags BF = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-
-                FieldInfo fightOrderField = typeof(EncounterSessionMC).GetField("m_FightOrder", BF);
-                if (fightOrderField == null)
-                {
-                    Debug.LogError("[MultiMax] m_FightOrder field not found!");
-                    return;
-                }
-
-                var fightOrder = fightOrderField.GetValue(__instance) as List<EncounterSessionMC.FightOrderEntry>;
-                if (fightOrder == null)
-                {
-                    fightOrder = new List<EncounterSessionMC.FightOrderEntry>();
-                    fightOrderField.SetValue(__instance, fightOrder);
-                }
-
-                var ctor = typeof(EncounterSessionMC.FightOrderEntry).GetConstructor(new[] { typeof(FTKPlayerID), typeof(int) });
-                if (ctor == null)
-                {
-                    Debug.LogError("[MultiMax] FightOrderEntry constructor not found!");
-                    return;
-                }
-
-                var enemies = EncounterSession.Instance?.m_EnemyDummies;
-                if (enemies != null)
-                {
-                    var existingIds = new HashSet<FTKPlayerID>();
-                    foreach (var entry in fightOrder)
-                        existingIds.Add(entry.m_Pid);
-
-                    int nextIndex = fightOrder.Count;
-                    foreach (var kv in enemies)
-                    {
-                        var id = kv.Key;
-                        var dummy = kv.Value;
-
-                        if (!existingIds.Contains(id) && dummy != null && dummy.m_IsAlive)
-                        {
-                            var entry = (EncounterSessionMC.FightOrderEntry)ctor.Invoke(new object[] { id, nextIndex++ });
-                            fightOrder.Add(entry);
-                            Debug.Log($"[MultiMax] Added enemy to fightOrder: {dummy.m_EnemyType} (index {nextIndex - 1})");
-                        }
-                    }
-                }
-
-                Debug.Log($"[MultiMax] FightOrderRPC final count: {fightOrder.Count}");
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[MultiMax] FixFightOrderRPCPatch error: {ex}");
+                Log($"[MultiMax] SafeTurnOffMarkers error: {e}");
+                return false;
             }
         }
     }
@@ -567,7 +665,6 @@ namespace FTK_MultiMax_Rework_v2.Patches
             {
                 if (__instance.m_AttackSchedule != null && __instance.m_AttackSchedule.m_Schedule != null)
                 {
-                    // CRITICAL: Always populate m_AttackScheduleList, even if not owner
                     __instance.m_AttackScheduleList = new List<AttackSchedule.AttackType>(__instance.m_AttackSchedule.m_Schedule);
                     __instance.m_AttackScheduleIndex = 0;
 
@@ -615,6 +712,106 @@ namespace FTK_MultiMax_Rework_v2.Patches
         }
     }
 
+
+    [PatchType(typeof(EncounterSessionMC))]
+    public static class EnsureEnemyStatusesForAllDummiesPatch
+    {
+        [PatchMethod("CommenceBattleRPC")]
+        [PatchPosition(Prefix)]
+        public static void commenceBattle(EncounterSessionMC __instance)
+        {
+            try
+            {
+                const BindingFlags BF = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.FlattenHierarchy;
+
+                var fldStatuses = typeof(EncounterSessionMC).GetField("m_EnemyStatuses", BF);
+                var statuses = fldStatuses?.GetValue(__instance) as IDictionary;
+                if (statuses == null) return;
+
+                var enemyDummies = EncounterSession.Instance?.m_EnemyDummies;
+                if (enemyDummies == null) return;
+
+                var statusValueType = fldStatuses.FieldType.GetGenericArguments()[1];
+                var ctor = statusValueType.GetConstructor(new[] { typeof(string), typeof(HexLandID), typeof(bool), typeof(int) });
+                if (ctor == null) return;
+
+                foreach (var kv in enemyDummies)
+                {
+                    var fid = kv.Key;
+                    var dummy = kv.Value;
+                    if (dummy == null) continue;
+
+                    if (!statuses.Contains(fid))
+                    {
+                        var status = ctor.Invoke(new object[] { dummy.m_EnemyType, null, true, 0 });
+                        statuses[fid] = status;
+                        Debug.Log($"[MultiMax] Added EnemyStatus for {dummy.m_EnemyType} (turn {fid.m_TurnIndex})");
+                    }
+                }
+
+                Debug.Log($"[MultiMax] EnemyStatuses count = {statuses.Count}");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[MultiMax] EnsureEnemyStatusesForAllDummiesPatch error: {e}");
+            }
+        }
+    }
+
+    [PatchType(typeof(CharacterDummy))]
+    public class CharacterDummyActionMoveFix
+    {
+        [PatchMethod("ActionMove")]
+        [PatchPosition(Prefix)]
+        public static bool SafeMove(ref CharacterDummy __instance, Animator _an, AnimatorStateInfo _info)
+        {
+            try
+            {
+                // Validate victim exists
+                if (__instance.m_CurrentVictimID == null ||
+                    !EncounterSession.Instance.m_Dummies.ContainsKey(__instance.m_CurrentVictimID))
+                {
+                    Debug.LogWarning($"[MultiMax] Invalid victim ID during ActionMove for {__instance.name}, skipping");
+                    return false;
+                }
+
+                var victim = EncounterSession.Instance.m_Dummies[__instance.m_CurrentVictimID];
+                if (victim == null)
+                {
+                    Debug.LogWarning($"[MultiMax] Null victim during ActionMove for {__instance.name}");
+                    return false;
+                }
+
+                var slide = __instance.m_AttackSlide;
+                if (slide == null)
+                {
+                    Debug.LogWarning($"[MultiMax] Null AttackSlide for {__instance.name}");
+                    return false;
+                }
+
+                // Validate and clamp DioramaTargetIndex
+                if (slide.m_Distances == null || slide.m_Distances.Length == 0)
+                {
+                    Debug.LogWarning($"[MultiMax] Empty m_Distances array for {__instance.name}");
+                    return false;
+                }
+
+                if (victim.m_DioramaTargetIndex >= slide.m_Distances.Length)
+                {
+                    int clamped = Mathf.Clamp(victim.m_DioramaTargetIndex, 0, slide.m_Distances.Length - 1);
+                    Debug.LogWarning($"[MultiMax] Clamping DioramaTargetIndex {victim.m_DioramaTargetIndex} → {clamped}");
+                    victim.m_DioramaTargetIndex = clamped;
+                }
+
+                return true; // run original
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[MultiMax] SafeMove exception: {e}");
+                return false;
+            }
+        }
+    }
     [PatchType(typeof(EnemyDummy))]
     public static class EnemyDummyInitCombatPatch
     {
@@ -635,202 +832,5 @@ namespace FTK_MultiMax_Rework_v2.Patches
                 Debug.LogError($"[MultiMax] InitCombatDebug error: {e}");
             }
         }
-        [PatchType(typeof(EncounterSessionMC))]
-        public static class EnsureEnemyStatusesForAllDummiesPatch
-        {
-            [PatchMethod("CommenceBattleRPC")]
-            [PatchPosition(Prefix)]
-            public static void commenceBattle(EncounterSessionMC __instance)
-            {
-                try
-                {
-                    const BindingFlags BF = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.FlattenHierarchy;
-
-                    var fldStatuses = typeof(EncounterSessionMC).GetField("m_EnemyStatuses", BF);
-                    var statuses = fldStatuses?.GetValue(__instance) as IDictionary;
-                    if (statuses == null) return;
-
-                    var enemyDummies = EncounterSession.Instance?.m_EnemyDummies;
-                    if (enemyDummies == null) return;
-
-                    var statusValueType = fldStatuses.FieldType.GetGenericArguments()[1];
-                    var ctor = statusValueType.GetConstructor(new[] { typeof(string), typeof(HexLandID), typeof(bool), typeof(int) });
-                    if (ctor == null) return;
-
-                    foreach (var kv in enemyDummies)
-                    {
-                        var fid = kv.Key;
-                        var dummy = kv.Value;
-                        if (dummy == null) continue;
-
-                        if (!statuses.Contains(fid))
-                        {
-                            var status = ctor.Invoke(new object[] { dummy.m_EnemyType, null, true, 0 });
-                            statuses[fid] = status;
-                            Debug.Log($"[MultiMax] Added EnemyStatus for {dummy.m_EnemyType} (turn {fid.m_TurnIndex})");
-                        }
-                    }
-
-                    Debug.Log($"[MultiMax] EnemyStatuses count = {statuses.Count}");
-                }
-                catch (Exception e)
-                {
-                    Debug.LogError($"[MultiMax] EnsureEnemyStatusesForAllDummiesPatch error: {e}");
-                }
-            }
-        }
-        [PatchType(typeof(CharacterDummy))]
-        public class CharacterDummyActionMoveFix
-        {
-            [PatchMethod("ActionMove")]
-            [PatchPosition(Prefix)]
-            public static bool SafeMove(ref CharacterDummy __instance, Animator _an, AnimatorStateInfo _info)
-            {
-                try
-                {
-                    // Validate victim exists
-                    if (__instance.m_CurrentVictimID == null ||
-                        !EncounterSession.Instance.m_Dummies.ContainsKey(__instance.m_CurrentVictimID))
-                    {
-                        Debug.LogWarning($"[MultiMax] Invalid victim ID during ActionMove for {__instance.name}, skipping");
-                        return false;
-                    }
-
-                    var victim = EncounterSession.Instance.m_Dummies[__instance.m_CurrentVictimID];
-                    if (victim == null)
-                    {
-                        Debug.LogWarning($"[MultiMax] Null victim during ActionMove for {__instance.name}");
-                        return false;
-                    }
-
-                    var slide = __instance.m_AttackSlide;
-                    if (slide == null)
-                    {
-                        Debug.LogWarning($"[MultiMax] Null AttackSlide for {__instance.name}");
-                        return false;
-                    }
-
-                    // Validate and clamp DioramaTargetIndex
-                    if (slide.m_Distances == null || slide.m_Distances.Length == 0)
-                    {
-                        Debug.LogWarning($"[MultiMax] Empty m_Distances array for {__instance.name}");
-                        return false;
-                    }
-
-                    if (victim.m_DioramaTargetIndex >= slide.m_Distances.Length)
-                    {
-                        int clamped = Mathf.Clamp(victim.m_DioramaTargetIndex, 0, slide.m_Distances.Length - 1);
-                        Debug.LogWarning($"[MultiMax] Clamping DioramaTargetIndex {victim.m_DioramaTargetIndex} → {clamped}");
-                        victim.m_DioramaTargetIndex = clamped;
-                    }
-
-                    return true; // run original
-                }
-                catch (Exception e)
-                {
-                    Debug.LogError($"[MultiMax] SafeMove exception: {e}");
-                    return false;
-                }
-            }
-        }
-        [PatchType(typeof(Diorama))]
-        public static class DioramaEnemyLayoutPatch_CustomAttr
-        {
-            [PatchMethod("_resetTargetQueue")]
-            [PatchPosition(Postfix)]
-            public static void enemyLayoutPatch(ref Diorama __instance)
-            {
-                try
-                {
-                    if (__instance == null) return;
-                    if (__instance.m_EnemyTargets == null || __instance.m_PlayerTargets == null) return;
-
-                    int enemies = __instance.m_EnemyTargets.Count;
-                    int players = __instance.m_PlayerTargets.Count;
-                    if (enemies == 0 || players == 0) return;
-
-                    EnsureSlides(__instance.m_PlayerTargets);
-                    EnsureSlides(__instance.m_EnemyTargets);
-
-                    foreach (var playerT in __instance.m_PlayerTargets)
-                    {
-                        var slide = playerT.GetComponent<DummyAttackSlide>();
-                        if (slide == null) continue;
-
-                        if (slide.m_Distances == null || slide.m_Distances.Length < enemies)
-                            slide.m_Distances = new float[enemies];
-
-                        int idx = 0;
-                        foreach (var enemyT in __instance.m_EnemyTargets)
-                        {
-                            float dist = Vector3.Distance(enemyT.position, playerT.position) * __instance.m_AttackDistanceScale;
-                            slide.m_Distances[idx++] = dist;
-                        }
-                    }
-
-                    foreach (var enemyT in __instance.m_EnemyTargets)
-                    {
-                        var slide = enemyT.GetComponent<DummyAttackSlide>();
-                        if (slide == null) continue;
-
-                        if (slide.m_Distances == null || slide.m_Distances.Length < players)
-                            slide.m_Distances = new float[players];
-
-                        int idx = 0;
-                        foreach (var playerT in __instance.m_PlayerTargets)
-                        {
-                            float dist = Vector3.Distance(enemyT.position, playerT.position) * __instance.m_AttackDistanceScale;
-                            slide.m_Distances[idx++] = dist;
-                        }
-                    }
-                }
-                catch (Exception e)
-                {
-                    Main.Log($"[MultiMax] DioramaEnemyLayoutPatch error: {e}");
-                }
-
-                try
-                {
-                    var diorama = EncounterSession.Instance?.m_ActiveDiorama;
-                    if (diorama == null) return;
-
-                    int enemyCount = diorama.m_EnemyTargets?.Count ?? 0;
-                    int playerCount = diorama.m_PlayerTargets?.Count ?? 0;
-                    if (enemyCount == 0 || playerCount == 0) return;
-
-                    var allSlides = UnityEngine.Object.FindObjectsOfType<DummyAttackSlide>();
-                    foreach (var slide in allSlides)
-                    {
-                        if (slide == null) continue;
-
-                        int size = Mathf.Max(enemyCount, playerCount);
-                        if (slide.m_Distances == null || slide.m_Distances.Length < size)
-                            slide.m_Distances = new float[size];
-
-                        for (int i = 0; i < size; i++)
-                        {
-                            var p = diorama.m_PlayerTargets[Mathf.Min(i, playerCount - 1)];
-                            var e = diorama.m_EnemyTargets[Mathf.Min(i, enemyCount - 1)];
-                            slide.m_Distances[i] = Vector3.Distance(p.position, e.position) * diorama.m_AttackDistanceScale;
-                        }
-                    }
-                }
-                catch (Exception e)
-                {
-                    Main.Log($"[MultiMax] Resync error: {e}");
-                }
-            }
-            private static void EnsureSlides(List<Transform> list)
-            {
-                if (list == null) return;
-                foreach (var t in list)
-                {
-                    if (t == null) continue;
-                    if (t.GetComponent<DummyAttackSlide>() == null)
-                        t.gameObject.AddComponent<DummyAttackSlide>();
-                }
-            }
-        }
     }
 }
-

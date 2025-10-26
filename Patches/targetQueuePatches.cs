@@ -25,7 +25,6 @@ namespace FTK_MultiMax_Rework_v2.Patches
         {
             _centerPos = Vector3.zero;
 
-            // 🔒 blocca tutto se non siamo nel runtime attivo
             if (!Application.isPlaying || __instance == null)
                 return true;
 
