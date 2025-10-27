@@ -14,7 +14,7 @@ using Google2u;
 using Newtonsoft.Json;
 
 [PatchType(typeof(EncounterSession))]
-public static class SyncClonedEnemiesToEnemyStatuses
+public static class SyncClonedEnemiesToEnemyStatuses    
 {
     [PatchMethod("InitEnemyDummiesForCombat")]
     [PatchPosition(Postfix)]

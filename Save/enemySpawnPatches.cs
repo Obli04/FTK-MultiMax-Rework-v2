@@ -1017,29 +1017,14 @@ namespace FTK_MultiMax_Rework_v2.Patches
                 }
                 bool isMyTurn = false;
                 var mc = EncounterSessionMC.Instance;
-                var enc = EncounterSession.Instance;
-
-                if (mc != null && enc != null)
+                if (mc != null)
                 {
-                    // Try fight order
-                    var fightOrderField = typeof(EncounterSessionMC)
-                        .GetField("m_FightOrder", BindingFlags.Instance | BindingFlags.NonPublic);
-                    var fightOrder = fightOrderField?.GetValue(mc) as IList;
-                    if (fightOrder != null && fightOrder.Count > 0)
-                    {
-                        var first = fightOrder[0];
-                        var pidField = first.GetType().GetField("m_Pid");
-                        var pidObj = pidField?.GetValue(first);
-                        if (pidObj is FTKPlayerID pid && pid.Equals(__instance.FID))
-                            isMyTurn = true;
-                    }
-
-                    // fallback: current attacker or local dummy
-                    if (!isMyTurn && mc.m_PlayerAttacker.Equals(__instance.FID))
+                    var localPlayer = mc.m_PlayerAttacker; // who’s currently taking action
+                    if (localPlayer.Equals(__instance.FID))
                         isMyTurn = true;
                 }
 
-                // final fallback for host or singleplayer
+                // fallback to singleplayer or IsOwner
                 if (GameLogic.Instance.IsSinglePlayer() || __instance.IsOwner)
                     isMyTurn = true;
 
@@ -1049,11 +1034,6 @@ namespace FTK_MultiMax_Rework_v2.Patches
                     Log($"[MultiMax] Hidden battle stance UI (not local player's turn)");
                     return;
                 }
-
-                stance.gameObject.SetActive(true);
-                stance.Initialize(_refresh: false);
-                Log($"[MultiMax] Shown battle stance UI for {__instance.name}");
-
 
                 stance.gameObject.SetActive(true);
                 stance.Initialize(_refresh: false);
