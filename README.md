@@ -24,20 +24,10 @@ Feedback is greatly appreciated.
 
 ---
 
-### Other Improvements
-- Fixed **missing battle stance UI** on the first combat round (previously caused by invalid enemy dictionary state).  
-- Added **failsafes** for invalid or dead enemies to prevent `KeyNotFoundException` during combat.  
-- Rebuilt encounter cleanup routines — no longer destroys UI, only clears data.  
-- Improved **camera targeting**, **enemy status syncing**, and **HUD refresh** for 4+ enemies.  
-- Reworked **combat end** handling (`ReturnToOverworld`) to cleanly disable UI and reset only logic-critical data.  
-- Smoothed out **attack queue**, **fight order**, and **diorama target** management for expanded enemy groups.
-
----
-
 ## Planned for v2.2
 - Procedural enemy selection based on **biome/environment**.  
 - Scaling of **loot, gold, and EXP** to match total enemies.  
-- Adaptive **shop pricing** for larger player counts. (Depending on how balanced it is currrently)  
+- Adaptive **shop pricing** based on feedback.  
 
 ---
 
@@ -68,7 +58,7 @@ If the configuration file isn’t visible, launch and close the game once — Be
 ## Known Issues
 - Occasional **black screen after loading** — typically resolves by restarting the session.  
 - **AOE/group abilities** may only affect the first two enemies.
-- Some UI elements may reposition incorrectly in 5-player encounters — purely visual.
+- Some UI elements may reposition incorrectly in >4-player encounters — purely visual.
 
 ---
 
@@ -85,19 +75,6 @@ This mod builds upon the work of multiple developers over time.
 
 ---
 
-## Changelog
-
-### v2.1
-- Reworked enemy spawn logic to scale with player count.  
-- Adjusted shop item quantities to match player number.  
-
-### v2.0
-- Major rewrite of MultiMax Rework by PolarsBear.  
-- Fixed crashes with >6 players and session restarts.  
-- Improved stability and reorganization of encounter logic.
-
----
-
 ## Credits
 
 - **Original Concept:** [samupo](https://next.nexusmods.com/profile/Samupo?gameId=2887) — *For The King Multi Max*  
@@ -105,7 +82,3 @@ This mod builds upon the work of multiple developers over time.
 - **Second Rework:** [PolarsBear](https://github.com/PolarsBear/FTK-MultiMax-Rework-v2) — *v2 core improvements*  
 - **Current Fork (v2.1):** [Obli](https://github.com/ObliDev) — *enemy + shop system rework*
 
----
-
-Happy hunting,  
-**by Obli & PolarsBear & All other Great Developers!**
