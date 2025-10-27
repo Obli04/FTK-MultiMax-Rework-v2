@@ -53,9 +53,6 @@ namespace FTK_MultiMax_Rework_v2.Patches
             }
         }
     }
-
-    // RIMOSSO ExpandInInitiateCurrentEncounter - duplicato di RandomizeEnemiesFromBiomePatch
-
     [PatchType(typeof(EncounterSessionMC))]
     public static class ExpandEnemyListBeforeDeserialize
     {
@@ -239,6 +236,8 @@ namespace FTK_MultiMax_Rework_v2.Patches
             }
         }
     }
+
+
     [PatchType(typeof(CharacterDummy))]
     public static class Guard_EngageBattle_WhenNoTargets
     {
@@ -247,17 +246,22 @@ namespace FTK_MultiMax_Rework_v2.Patches
         public static bool Guard(CharacterDummy __instance, int _randomCheck, bool _isFirstAttack, FTKPlayerID _playerVictim, bool _cheerIfDie)
         {
             var enc = EncounterSession.Instance;
-            if (enc?.m_EnemyDummies == null) return true;
+            if (enc?.m_EnemyDummies == null)
+            {
+                Log("[MultiMax] EncounterSession or EnemyDummies is null in EngageBattle");
+                return true;
+            }
 
             bool anyAlive = enc.m_EnemyDummies.Values.Any(d => d != null && d.m_IsAlive && d.m_CurrentHealth > 0);
             if (!anyAlive)
             {
                 Log("[MultiMax] 0 enemy alive → skip EngageBattle");
-                return false; // niente camera/stepout
+                return false;
             }
             return true;
         }
     }
+
     [PatchType(typeof(CharacterDummy))]
     public static class CharacterDummy_EngageBattle_Fixes
     {
@@ -286,9 +290,10 @@ namespace FTK_MultiMax_Rework_v2.Patches
             }
         }
 
+
         [PatchMethod("EngageBattle")]
         [PatchPosition(Postfix)]
-        public static void ForceEngageForNonOwner(CharacterDummy __instance)
+        public static void gageForNonOwner(CharacterDummy __instance)
         {
             try
             {
@@ -368,7 +373,197 @@ namespace FTK_MultiMax_Rework_v2.Patches
             }
         }
     }
-    // B) Initiative: rimuovi morti, non aggiungere se nessun vivo
+    [PatchType(typeof(uiBattleStanceButtons))]
+    public static class SafeInitializeWithValidEnemy
+    {
+        [PatchMethod("Initialize")]
+        [PatchPosition(Postfix)]
+        public static void EnsureValidEnemySelected(uiBattleStanceButtons __instance, bool _refresh)
+        {
+            try
+            {
+                var enc = EncounterSession.Instance;
+                if (enc?.m_EnemyDummies == null) return;
+
+                var currentEnemy = enc.GetCurrentEnemy();
+                if (currentEnemy == null || !currentEnemy.m_IsAlive || currentEnemy.m_CurrentHealth <= 0)
+                {
+                    // Find first alive enemy
+                    var firstAlive = enc.m_EnemyDummies.Values.FirstOrDefault(e =>
+                        e != null && e.m_IsAlive && e.m_CurrentHealth > 0);
+
+                    if (firstAlive != null)
+                    {
+                        enc.m_CurrentEnemy = firstAlive.FID;
+
+                        // Update player dummy's victim
+                        var cow = GameLogic.Instance.GetCurrentCombatCOW();
+                        if (cow?.m_CurrentDummy != null)
+                        {
+                            cow.m_CurrentDummy.m_CurrentVictimID = firstAlive.FID;
+                        }
+
+                        Log($"[MultiMax] Assigned valid enemy target: {firstAlive.name}");
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[MultiMax] SafeInitializeWithValidEnemy error: {e}");
+            }
+        }
+    }
+
+    [PatchType(typeof(EncounterSession))]
+    public static class SafeGetCurrentEnemy
+    {
+        [PatchMethod("GetCurrentEnemy")]
+        [PatchPosition(Postfix)]
+        public static void ValidateCurrentEnemy(EncounterSession __instance, ref EnemyDummy __result)
+        {
+            try
+            {
+                if (__result == null || !__result.m_IsAlive || __result.m_CurrentHealth <= 0)
+                {
+                    var firstAlive = __instance.m_EnemyDummies?.Values.FirstOrDefault(e =>
+                        e != null && e.m_IsAlive && e.m_CurrentHealth > 0);
+
+                    if (firstAlive != null)
+                    {
+                        __instance.m_CurrentEnemy = firstAlive.FID;
+                        __result = firstAlive;
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[MultiMax] SafeGetCurrentEnemy error: {e}");
+            }
+        }
+    }
+    [PatchType(typeof(EncounterSessionMC))]
+    public static class ShowBattleUIOnCombatStart
+    {
+        [PatchMethod("CommenceBattleRPC")]
+        [PatchPosition(Postfix)]
+        public static void ShowUI()
+        {
+            try
+            {
+                var ui = FTKUI.Instance;
+                if (ui == null) return;
+
+                ui.StartCoroutine(ShowAfterDelay());
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[MultiMax] ShowBattleUIOnCombatStart error: {e}");
+            }
+        }
+
+        private static IEnumerator ShowAfterDelay()
+        {
+            yield return new WaitForSeconds(0.5f);
+
+            var stance = FTKUI.Instance?.m_BattleStanceButtons ?? UnityEngine.Object.FindObjectOfType<uiBattleStanceButtons>();
+            if (stance == null)
+            {
+                Debug.LogWarning("[MultiMax] uiBattleStanceButtons still missing after battle start");
+                yield break;
+            }
+
+            // Disable UI at battle start — only shown when player’s turn begins
+            stance.gameObject.SetActive(false);
+            Debug.Log("[MultiMax] Battle stance UI created but hidden until player turn");
+        }
+    }
+
+    [PatchType(typeof(EncounterSessionMC))]
+    public static class DioramaSyncPatch
+    {
+        [PatchMethod("CommenceBattleRPC")]
+        [PatchPosition(Postfix)]
+        public static void ResyncDiorama(EncounterSessionMC __instance)
+        {
+            try
+            {
+                var enc = EncounterSession.Instance;
+                var diorama = enc?.m_ActiveDiorama;
+                if (enc == null || diorama == null) return;
+
+                var enemies = enc.m_EnemyDummies;
+                if (enemies == null || enemies.Count == 0) return;
+
+                // 1. Expand target list if too short
+                while (diorama.m_EnemyTargets.Count < enemies.Count)
+                {
+                    var prefab = diorama.m_EnemyTargets[0];
+                    var clone = UnityEngine.Object.Instantiate(prefab, prefab.parent);
+                    clone.name = $"Enemy Target {diorama.m_EnemyTargets.Count}";
+                    diorama.m_EnemyTargets.Add(clone);
+                }
+
+                // 2. Rebuild target queue
+                var queueField = typeof(Diorama).GetField("m_EnemyTargetQueue",
+                    BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+                var queue = queueField?.GetValue(diorama) as IDictionary;
+                queue?.Clear();
+
+                var enemyList = enemies.Values
+                    .Where(e => e != null)
+                    .OrderBy(e => e.FID.m_TurnIndex)
+                    .ThenBy(e => e.name)
+                    .ToList();
+
+                for (int i = 0; i < enemyList.Count; i++)
+                {
+                    if (i >= diorama.m_EnemyTargets.Count) break;
+                    queue?.Add(enemyList[i].FID, diorama.m_EnemyTargets[i]);
+                }
+
+                // Try to set EncounterSession.m_EnemyList if it exists
+                var listField = typeof(EncounterSession).GetField("m_EnemyList",
+                    BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+                if (listField != null)
+                {
+                    listField.SetValue(enc, enemyList);
+                    Debug.Log($"[MultiMax] Synced EncounterSession.m_EnemyList ({enemyList.Count})");
+                }
+                else
+                {
+                    Debug.Log($"[MultiMax] EncounterSession has no m_EnemyList field, skipping sync ({enemyList.Count} enemies)");
+                }
+
+                // 4. Align enemies to targets
+                for (int i = 0; i < enemyList.Count; i++)
+                {
+                    if (i >= diorama.m_EnemyTargets.Count) break;
+                    var dummy = enemyList[i];
+                    var target = diorama.m_EnemyTargets[i];
+
+                    dummy.transform.position = target.position;
+                    dummy.transform.rotation = target.rotation;
+                    dummy.m_DioramaTargetIndex = i;
+                }
+                // Adjust Diorama enemy spacing dynamically
+                float totalWidth = 6f; // width of battlefield in units
+                int enemyCount = enemyList.Count;
+                for (int i = 0; i < enemyCount; i++)
+                {
+                    float x = -totalWidth / 2f + (totalWidth / (enemyCount - 1)) * i;
+                    var target = diorama.m_EnemyTargets[i];
+                    target.localPosition = new Vector3(x, target.localPosition.y, target.localPosition.z);
+                }
+                Debug.Log($"[MultiMax] Adjusted Diorama spacing for {enemyCount} enemies");
+                Debug.Log($"[MultiMax] Diorama targets resynced ({enemyList.Count})");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[MultiMax] DioramaSyncPatch error: {e}");
+            }
+        }
+    }
+
     [PatchType(typeof(EncounterSessionMC))]
     static class ComputeCombatInitiativePatch_Safe
     {
@@ -397,7 +592,7 @@ namespace FTK_MultiMax_Rework_v2.Patches
                     __result.Add(kv.Key);
         }
     }
-    
+
     [PatchType(typeof(CharacterDummy))]
     static class CharacterDummy_EngageAttack_Guard
     {
@@ -406,19 +601,34 @@ namespace FTK_MultiMax_Rework_v2.Patches
         public static bool GuardNoTargets(CharacterDummy __instance)
         {
             var enc = EncounterSession.Instance;
-            if (enc?.m_EnemyDummies == null) return true;
+            if (enc?.m_EnemyDummies == null)
+            {
+                Log("[MultiMax] No encounter session in EngageAttack");
+                return true;
+            }
 
             bool anyAlive = enc.m_EnemyDummies.Values.Any(d => d != null && d.m_IsAlive && d.m_CurrentHealth > 0);
             if (!anyAlive)
-            {   
+            {
                 Log("[MultiMax] No enemy targets → skip EngageAttack");
-                return false; // salta originale, lascia che UpdateTime_CR chiuda
+                return false;
             }
+
+            // Ensure UI is enabled for player turns
+            if (__instance.FID.IsPlayer())
+            {
+                var stance = GameObject.FindObjectOfType<uiBattleStanceButtons>();
+                if (stance != null && !stance.gameObject.activeSelf)
+                {
+                    stance.gameObject.SetActive(true);
+                    Log("[MultiMax] Re-enabled uiBattleStanceButtons");
+                }
+            }
+
             return true;
         }
     }
 
-    // C) Fight order: sincronizza solo vivi
     [PatchType(typeof(EncounterSessionMC))]
     static class FixFightOrderRPCPatch_Safe
     {
@@ -450,6 +660,152 @@ namespace FTK_MultiMax_Rework_v2.Patches
                 var d = kv.Value;
                 if (d != null && d.m_IsAlive && d.m_CurrentHealth > 0 && existing.Add(kv.Key))
                     fightOrder.Add((EncounterSessionMC.FightOrderEntry)ctor.Invoke(new object[] { kv.Key, idx++ }));
+            }
+        }
+    }
+
+    [PatchType(typeof(uiEnemyHUD))]
+    public static class ResetEnemyHUDForNewEncounter
+    {
+        [PatchMethod("InitializeEnemyHud")]
+        [PatchPosition(Prefix)]
+        public static void ClearOldReferencesBeforeInit(uiEnemyHUD __instance, EnemyDummy _ed, int _index)
+        {
+            try
+            {
+                // Se il dizionario contiene riferimenti vecchi, puliscili
+                if (__instance.m_EnemyHudDictionary != null && __instance.m_EnemyHudDictionary.Count > 0)
+                {
+                    // Rimuovi entry con dummy morti o null
+                    var deadKeys = new List<EnemyDummy>();
+                    foreach (var kv in __instance.m_EnemyHudDictionary)
+                    {
+                        if (kv.Key == null || !kv.Key.m_IsAlive || kv.Key.m_CurrentHealth <= 0)
+                        {
+                            deadKeys.Add(kv.Key);
+                        }
+                    }
+
+                    foreach (var key in deadKeys)
+                    {
+                        if (__instance.m_EnemyHudDictionary[key] != null)
+                        {
+                            __instance.m_EnemyHudDictionary[key].gameObject.SetActive(false);
+                        }
+                        __instance.m_EnemyHudDictionary.Remove(key);
+                    }
+
+                    if (deadKeys.Count > 0)
+                    {
+                        Log($"[MultiMax] Cleaned {deadKeys.Count} dead enemy HUD references");
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[MultiMax] ResetEnemyHUD error: {e}");
+            }
+        }
+    }
+
+    [PatchType(typeof(EncounterSession))]
+    public static class CleanupBetweenEncountersPatch
+    {
+        [PatchMethod("StartEncounterSession")]
+        [PatchPosition(Prefix)]
+        public static void ResetForNewEncounter(EncounterSession __instance)
+        {
+            try
+            {
+                // Clear combat data only — do NOT destroy UI
+                if (__instance.m_EnemyDummies != null)
+                    __instance.m_EnemyDummies.Clear();
+
+                // Reset camera
+                var camManager = UnityEngine.Object.FindObjectOfType<CameraCutManager>();
+                if (camManager != null)
+                {
+                    var field = typeof(CameraCutManager).GetField("m_CurrentEnemyDummy",
+                        BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
+                    field?.SetValue(camManager, null);
+                }
+
+                // Reset diorama queue only
+                if (__instance.m_ActiveDiorama != null)
+                {
+                    var queueField = typeof(Diorama).GetField("m_EnemyTargetQueue",
+                        BindingFlags.Instance | BindingFlags.NonPublic);
+                    var queue = queueField?.GetValue(__instance.m_ActiveDiorama) as IDictionary;
+                    queue?.Clear();
+                }
+
+                Debug.Log("[MultiMax] Cleaned data for new encounter (UI preserved)");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[MultiMax] CleanupBetweenEncountersPatch error: {e}");
+            }
+        }
+    }
+    [PatchType(typeof(FTKUI))]
+    public static class FTKUI_RestoreBattleUI
+    {
+        [PatchMethod("Awake")] // <-- esiste davvero
+        [PatchPosition(Postfix)]
+        public static void RestoreBattleUI(FTKUI __instance)
+        {
+            try
+            {
+                // Non creare nulla, non pulire nulla — solo usare i campi esistenti
+                var stance = __instance.m_BattleStanceButtons;
+                if (stance == null)
+                {
+                    Debug.LogWarning("[MultiMax] FTKUI Awake: m_BattleStanceButtons is null");
+                    return;
+                }
+
+                // Evita errori in menù o overworld
+                var enc = EncounterSession.Instance;
+                bool inBattle = enc?.m_EnemyDummies?.Count > 0;
+
+                if (inBattle)
+                {
+                    stance.gameObject.SetActive(true);
+                    stance.Initialize(_refresh: true);
+                    Debug.Log("[MultiMax] FTKUI Awake: Battle stance re-initialized (combat active)");
+                }
+                else
+                {
+                    stance.gameObject.SetActive(false);
+                    Debug.Log("[MultiMax] FTKUI Awake: Battle stance hidden (no enemies)");
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[MultiMax] RestoreBattleUI failed: {e}");
+            }
+        }
+    }
+
+    [PatchType(typeof(EncounterSessionMC))]
+    public static class HideBattleUIWhenDone
+    {
+        [PatchMethod("ReturnToOverworld")]
+        [PatchPosition(Postfix)]
+        public static void HideUI()
+        {
+            try
+            {
+                var stance = UnityEngine.Object.FindObjectOfType<uiBattleStanceButtons>();
+                if (stance != null && stance.gameObject.activeSelf)
+                {
+                    stance.gameObject.SetActive(false);
+                    Debug.Log("[MultiMax] Stance UI hidden after ReturnToOverworld (combat ended)");
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[MultiMax] HideBattleUIWhenDone error: {e}");
             }
         }
     }
@@ -488,6 +844,33 @@ namespace FTK_MultiMax_Rework_v2.Patches
             }
         }
     }
+
+    [PatchType(typeof(uiEnemyHUD))]
+    public static class SafeEnemyHUDOperations
+    {
+        [PatchMethod("SetEnemyHealth")]
+        [PatchPosition(Prefix)]
+        public static bool SafeSetHealth(uiEnemyHUD __instance, EnemyDummy _ed)
+        {
+            if (_ed == null || !__instance.m_EnemyHudDictionary.ContainsKey(_ed))
+            {
+                return false;
+            }
+            return true;
+        }
+
+        [PatchMethod("RefreshStatusIcons")]
+        [PatchPosition(Prefix)]
+        public static bool SafeRefreshIcons(uiEnemyHUD __instance, EnemyDummy _ed)
+        {
+            if (_ed == null || !__instance.m_EnemyHudDictionary.ContainsKey(_ed))
+            {
+                return false;
+            }
+            return true;
+        }
+    }
+
     [PatchType(typeof(uiActiveTime))]
     public static class SafeUIActiveTimePatch
     {
@@ -518,55 +901,6 @@ namespace FTK_MultiMax_Rework_v2.Patches
             }
 
             return true; // let vanilla update run
-        }
-    }
-
-    [PatchType(typeof(EncounterSessionMC))]
-    public static class DioramaSyncPatch
-    {
-        [PatchMethod("CommenceBattleRPC")]
-        [PatchPosition(Postfix)]
-        public static void ResyncDiorama(EncounterSessionMC __instance)
-        {
-            try
-            {
-                var diorama = EncounterSession.Instance?.m_ActiveDiorama;
-                if (diorama == null) return;
-
-                var enemies = EncounterSession.Instance?.m_EnemyDummies;
-                if (enemies == null) return;
-
-                while (diorama.m_EnemyTargets.Count < enemies.Count)
-                {
-                    var prefab = diorama.m_EnemyTargets[0];
-                    var clone = UnityEngine.Object.Instantiate(prefab, prefab.parent);
-                    clone.name = $"Enemy Target {diorama.m_EnemyTargets.Count}";
-                    diorama.m_EnemyTargets.Add(clone);
-                }
-
-                var enemyList = enemies.Values
-                    .Where(e => e != null)
-                    .OrderBy(e => e.FID.m_TurnIndex)
-                    .ToList();
-
-                for (int i = 0; i < enemyList.Count; i++)
-                {
-                    if (i >= diorama.m_EnemyTargets.Count) break;
-
-                    var dummy = enemyList[i];
-                    var target = diorama.m_EnemyTargets[i];
-
-                    dummy.transform.position = target.position;
-                    dummy.transform.rotation = target.rotation;
-                    dummy.m_DioramaTargetIndex = i;
-                }
-
-                Debug.Log($"[MultiMax] Diorama targets resynced and ordered: {enemyList.Count}");
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"[MultiMax] DioramaSyncPatch error: {e}");
-            }
         }
     }
 
@@ -650,6 +984,84 @@ namespace FTK_MultiMax_Rework_v2.Patches
             {
                 Log($"[MultiMax] SafeTurnOffMarkers error: {e}");
                 return false;
+            }
+        }
+    }
+    
+    [PatchType(typeof(CharacterDummy))]
+    public static class EnsureBattleUIOnPlayerDecision
+    {
+        [PatchMethod("EngageAttack")]
+        [PatchPosition(Postfix)]
+        public static void ForceInitializeBattleUI(CharacterDummy __instance)
+        {
+            try
+            {
+                // Ignore enemies
+                if (__instance.FID.IsEnemy())
+                    return;
+
+                var ftkUI = FTKUI.Instance;
+                if (ftkUI == null)
+                {
+                    Log("[MultiMax] FTKUI.Instance is null!");
+                    return;
+                }
+
+                // Try to find stance in FTKUI hierarchy
+                var stance = ftkUI.m_BattleStanceButtons
+                             ?? ftkUI.GetComponentInChildren<uiBattleStanceButtons>(includeInactive: true)
+                             ?? UnityEngine.Object.FindObjectOfType<uiBattleStanceButtons>();
+
+                // If still missing, recreate it from FTKUI prefab reference
+                if (stance == null)
+                {
+                    Log("[MultiMax] uiBattleStanceButtons missing, attempting recreation...");
+
+                    var prefabField = typeof(FTKUI).GetField("m_BattleStanceButtons",
+                        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+                    var prefab = prefabField?.GetValue(ftkUI) as uiBattleStanceButtons;
+                    if (prefab != null)
+                    {
+                        stance = UnityEngine.Object.Instantiate(prefab, ftkUI.transform);
+                        ftkUI.m_BattleStanceButtons = stance;
+                        Log("[MultiMax] Recreated uiBattleStanceButtons from FTKUI prefab");
+                    }
+                    else
+                    {
+                        Log("[MultiMax] Could not find m_BattleStanceButtons prefab in FTKUI");
+                        return;
+                    }
+                }
+                bool isMyTurn = false;
+                var mc = EncounterSessionMC.Instance;
+                if (mc != null)
+                {
+                    var localPlayer = mc.m_PlayerAttacker; // who’s currently taking action
+                    if (localPlayer.Equals(__instance.FID))
+                        isMyTurn = true;
+                }
+
+                // fallback to singleplayer or IsOwner
+                if (GameLogic.Instance.IsSinglePlayer() || __instance.IsOwner)
+                    isMyTurn = true;
+
+                if (!isMyTurn)
+                {
+                    stance.gameObject.SetActive(false);
+                    Log($"[MultiMax] Hidden battle stance UI (not local player's turn)");
+                    return;
+                }
+
+                stance.gameObject.SetActive(true);
+                stance.Initialize(_refresh: false);
+                Log($"[MultiMax] Shown battle stance UI for {__instance.name}");
+
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[MultiMax] EnsureBattleUIOnPlayerDecision error: {e}");
             }
         }
     }

@@ -1,53 +1,111 @@
-# FTK MultiMax Rework V2
+# FTK MultiMax Rework v2.1
 
-This mod is a patched version (bugfixes and code reorganization) of the mod "FTK MultiMax Rework" by [justedm](https://next.nexusmods.com/profile/justedm?gameId=2887) \
-That mod itself was already a rework of "For The King Multi Max" by [samupo](https://next.nexusmods.com/profile/Samupo?gameId=2887)
+This version is a continuation and improvement of [PolarsBear’s FTK MultiMax Rework v2](https://github.com/PolarsBear/FTK-MultiMax-Rework-v2).  
+It includes several new systems, fixes, and rebalancing changes aimed at making 4–5 player gameplay smoother and closer to a native experience.
 
-The concept remains the same: adventures with more than 3 players.
+This fork is maintained by **Obli**, and tested primarily on **Steam** with 4 players.
+Feedback is greatly appreciated.
 
-justedm ran all their tests with 5 players, I ran all of mine with 4. \
-They ran all their tests on the Epic Games version. I ran all of mine on the Steam version. \
-Needless to say, we've got some alright coverage now
+---
 
-**What has changed:**
+## What’s New in v2.1
 
-- (See MultiMax Rework for changes between the original and the first rework)
-- Bugfixes:
-  - Exiting a session no longer forces you to restart the entire game
-  - Fixed bug that caused crashes with 6+ players (now any amount should be fine)
-  - Fixed visual issue with player character order in fights/dungeons
-  - More to come, as soon as I can find the cause of some more bugs (please submit your own error logs, to help)
+### Major Reworks
 
-## How to install:
+#### 1. Enemy Spawn System
+- Fully reworked enemy spawning and expansion logic.  
+- Enemies are now **matched dynamically to the current player count** instead of being locked to 3v3 or 4v2 (bug in previous versions)
+- The system currently **clones existing enemies** to fill additional slots for 4–5 player parties.  
+- A future update will make enemies **spawn randomly based on biome type** for more encounter variety.
 
-**Easy Method** (Recommended) \
-Use the [Thunderstore Mod Manager](https://thunderstore.io/package/ebkr/r2modman/)
-(Just press "Manual Download", then follow their instructions)
+#### 2. Shop Quantity Balancing
+- Shop items that originally had **quantity = 3** (e.g., *Godsbeard*, *Panax*) now automatically **scale to the player count**.  
+- Items with **quantity = 2** now scale to **player count − 1**.  
 
-**Manual Method**
+---
 
-1. Download and install [BepInEx](https://for-the-king.thunderstore.io/package/BepInEx/BepInExPack_ForTheKing/) by following their guide
-2. Download `FTK MultiMax Rework v2.dll` from the [Releases](https://github.com/PolarsBear/FTK-MultiMax-Rework-v2/releases) page or download the mod from [Thunderstore](https://thunderstore.io/c/for-the-king/p/PolarsBear/FTK_MultiMax_Rework_v2/)
-3. Leave the file in the `BepInEx\plugins` folder
-4. Launch the game!
+### Other Improvements
+- Fixed **missing battle stance UI** on the first combat round (previously caused by invalid enemy dictionary state).  
+- Added **failsafes** for invalid or dead enemies to prevent `KeyNotFoundException` during combat.  
+- Rebuilt encounter cleanup routines — no longer destroys UI, only clears data.  
+- Improved **camera targeting**, **enemy status syncing**, and **HUD refresh** for 4+ enemies.  
+- Reworked **combat end** handling (`ReturnToOverworld`) to cleanly disable UI and reset only logic-critical data.  
+- Smoothed out **attack queue**, **fight order**, and **diorama target** management for expanded enemy groups.
 
-## Configuration:
+---
 
-**IMPORTANT:** The player number in the config should match _exactly_ the player count in your game. (Yes, I know "Max Players" is misleading).
+## Planned for v2.2
+- Procedural enemy selection based on **biome/environment**.  
+- Scaling of **loot, gold, and EXP** to match total enemies.  
+- Adaptive **shop pricing** for larger player counts. (Depending on how balanced it is currrently)  
 
-I'm hoping to fix this at some point, but for right now, it is what it is
+---
 
-The mod does _work_ without the correct player amount configured, but some things (only visual, from what I've seen) get wonky.
+## Installation
 
-**N.B:** The configuration file is only generated after the game is launched with the mod enabled. Therefore, you might have to start then exit the game to configure the player amount.
+### Easy Method (Recommended)
+Use the [Thunderstore Mod Manager](https://thunderstore.io/package/ebkr/r2modman/).  
+Just press *Manual Download* and follow their setup instructions.
 
-## Issues
+### Manual Method
+1. Install [BepInEx Pack for For The King](https://for-the-king.thunderstore.io/package/BepInEx/BepInExPack_ForTheKing/).  
+2. Download the latest `FTK MultiMax Rework v2.1.dll` from this fork’s [Releases](https://github.com/ObliDev/FTK-MultiMax-Rework-v2.1/releases).  
+3. Place the DLL into your game’s `BepInEx/plugins` folder.  
+4. Launch the game.
 
-If you encounter a bug or error at any point, please do leave a github Issue
+---
 
-For now, the "black screen" issue is pretty rampant. It's somewhat random when it happens. And I'm working to fix it. However, as for now, just keep at it, and at some point it'll _probably_ work.
+## Configuration
 
-Hildebrant's Cellar is unaffected, works perfectly fine.
+**Important:**  
+The configured player count must **exactly match** the number of active players in your game session.  
+This ensures that combat, rewards, and scaling remain consistent.
 
-Happy hunting, \
-Polars Bear
+If the configuration file isn’t visible, launch and close the game once — BepInEx generates it on first load.
+
+---
+
+## Known Issues
+- Occasional **black screen after loading** — typically resolves by restarting the session.  
+- **AOE/group abilities** may only affect the first two enemies.
+- Some UI elements may reposition incorrectly in 5-player encounters — purely visual.
+
+---
+
+## Previous Versions
+
+This mod builds upon the work of multiple developers over time.
+
+| Version | Author | Description |
+|----------|--------|-------------|
+| **Original MultiMax** | [samupo](https://next.nexusmods.com/profile/Samupo?gameId=2887) | First implementation of >3 player support |
+| **Rework** | [justedm](https://next.nexusmods.com/profile/justedm?gameId=2887) | Code cleanup and stability fixes |
+| **Rework v2** | [PolarsBear](https://github.com/PolarsBear/FTK-MultiMax-Rework-v2) | Updated to support latest FTK version and fixed session crashes |
+| **v2.1 (Current)** | [Obli](https://github.com/ObliDev) | Enemy spawn and shop rework, encounter/UI fixes |
+
+---
+
+## Changelog
+
+### v2.1
+- Reworked enemy spawn logic to scale with player count.  
+- Adjusted shop item quantities to match player number.  
+
+### v2.0
+- Major rewrite of MultiMax Rework by PolarsBear.  
+- Fixed crashes with >6 players and session restarts.  
+- Improved stability and reorganization of encounter logic.
+
+---
+
+## Credits
+
+- **Original Concept:** [samupo](https://next.nexusmods.com/profile/Samupo?gameId=2887) — *For The King Multi Max*  
+- **First Rework:** [justedm](https://next.nexusmods.com/profile/justedm?gameId=2887) — *MultiMax Rework*  
+- **Second Rework:** [PolarsBear](https://github.com/PolarsBear/FTK-MultiMax-Rework-v2) — *v2 core improvements*  
+- **Current Fork (v2.1):** [Obli](https://github.com/ObliDev) — *enemy + shop system rework*
+
+---
+
+Happy hunting,  
+**by Obli & PolarsBear & All other Great Developers!**

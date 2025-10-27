@@ -7,8 +7,8 @@
     <ProjectGuid>{93679FB8-D7D5-4E0D-841D-239D6BD70317}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>FTK_MultiMax_Rework_v2</RootNamespace>
-    <AssemblyName>FTK MultiMax Rework v2</AssemblyName>
+    <RootNamespace>FTK_MultiMax_Rework_v2.1</RootNamespace>
+    <AssemblyName>FTK MultiMax Rework v2.1</AssemblyName>
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
@@ -32,7 +32,7 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Test|AnyCPU' ">
-    <OutputPath>C:\Users\Lars\AppData\Roaming\r2modmanPlus-local\ForTheKing\profiles\Default\BepInEx\plugins\Unknown-FTK MultiMax Rework v2</OutputPath>
+    <OutputPath>C:\Users\Lars\AppData\Roaming\r2modmanPlus-local\ForTheKing\profiles\Default\BepInEx\plugins\Unknown-FTK MultiMax Rework v2.1</OutputPath>
     <Optimize>true</Optimize>
   </PropertyGroup>
   <ItemGroup>
@@ -82,6 +82,9 @@
       <HintPath>E:\SteamLibrary\steamapps\common\For The King\FTK_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>E:\SteamLibrary\steamapps\common\For The King\FTK_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
+    </Reference>
     <Reference Include="UnityEngine.UI">
       <HintPath>E:\SteamLibrary\steamapps\common\For The King\FTK_Data\Managed\UnityEngine.UI.dll</HintPath>
       <Private>False</Private>
@@ -96,11 +99,14 @@
     <Compile Include="DummiesHandler.cs" />
     <Compile Include="Main.cs" />
     <Compile Include="Patches\DummyAttackSlideExpandPatch.cs" />
+    <Compile Include="Patches\enemyMarkerPatches.cs" />
     <Compile Include="Patches\enemySpawnPatches.cs" />
+    <Compile Include="Patches\groupAttackPatches.cs" />
     <Compile Include="Patches\SceneDioramaPatches.cs" />
     <Compile Include="Patches\DioramaPatches.cs" />
     <Compile Include="Patches\PlayerHelperPatches.cs" />
     <Compile Include="Patches\shopPatches.cs" />
+    <Compile Include="Patches\spaceEnemiesBeforeFight.cs" />
     <Compile Include="Patches\targetQueuePatches.cs" />
     <Compile Include="Patches\uiCharacterCreateRootPatches.cs" />
     <Compile Include="Patches\uiEnemyHUDPatches.cs" />
