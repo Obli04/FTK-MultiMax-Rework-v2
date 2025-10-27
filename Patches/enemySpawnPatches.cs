@@ -20,9 +20,7 @@ namespace FTK_MultiMax_Rework_v2.Patches
     {
         [PatchMethod("InitEnemyDummiesForCombat")]
         [PatchPosition(Prefix)]
-        public static void ExpandBeforeSpawn(
-            EncounterSession __instance,
-            ref string[] _enemyTypes)
+        public static void ExpandBeforeSpawn(EncounterSession __instance, ref string[] _enemyTypes)
         {
             try
             {
@@ -38,13 +36,45 @@ namespace FTK_MultiMax_Rework_v2.Patches
                     return;
                 }
 
-                var expandedTypes = new List<string>();
-                for (int i = 0; i < playerCount; i++)
+                // --- Forbidden / boss identifiers ---
+                string[] forbidden = {
+                "mimic", "boss", "scourge", "kraken", "mindlord", "snowqueen", "lavaqueen",
+                "lich", "mecha", "demon", "dragon", "seaSerpent", "frostKnight"
+            };
+
+                // Detect indices of bosses or forbidden types
+                var forbiddenIndices = new HashSet<int>();
+                for (int i = 0; i < _enemyTypes.Length; i++)
                 {
-                    expandedTypes.Add(_enemyTypes[i % _enemyTypes.Length]);
+                    string e = _enemyTypes[i];
+                    if (forbidden.Any(f => e.IndexOf(f, StringComparison.OrdinalIgnoreCase) >= 0))
+                        forbiddenIndices.Add(i);
+                }
+
+                // --- Determine which enemies are safe to clone ---
+                var cloneable = _enemyTypes
+                    .Select((name, idx) => new { name, idx })
+                    .Where(x => !forbiddenIndices.Contains(x.idx))
+                    .Select(x => x.name)
+                    .ToList();
+
+                if (cloneable.Count == 0)
+                {
+                    Log($"[MultiMax] All enemies are special ({string.Join(", ", _enemyTypes)}) → skipping expansion");
+                    return;
+                }
+
+                // --- Build final expanded list ---
+                var expandedTypes = new List<string>(_enemyTypes);
+                while (expandedTypes.Count < playerCount)
+                {
+                    // Prefer cloning guards (non-forbidden enemies)
+                    string next = cloneable[expandedTypes.Count % cloneable.Count];
+                    expandedTypes.Add(next);
                 }
 
                 _enemyTypes = expandedTypes.ToArray();
+
                 Log($"[MultiMax] FORCED expansion in InitEnemyDummiesForCombat: {string.Join(", ", _enemyTypes)}");
             }
             catch (Exception ex)
@@ -53,6 +83,7 @@ namespace FTK_MultiMax_Rework_v2.Patches
             }
         }
     }
+    
     [PatchType(typeof(EncounterSessionMC))]
     public static class ExpandEnemyListBeforeDeserialize
     {
@@ -236,8 +267,6 @@ namespace FTK_MultiMax_Rework_v2.Patches
             }
         }
     }
-
-
     [PatchType(typeof(CharacterDummy))]
     public static class Guard_EngageBattle_WhenNoTargets
     {
@@ -246,22 +275,20 @@ namespace FTK_MultiMax_Rework_v2.Patches
         public static bool Guard(CharacterDummy __instance, int _randomCheck, bool _isFirstAttack, FTKPlayerID _playerVictim, bool _cheerIfDie)
         {
             var enc = EncounterSession.Instance;
-            if (enc?.m_EnemyDummies == null)
+            if (enc?.m_EnemyDummies == null) return true;
+
+            bool anyAlive = enc.m_EnemyDummies.Values.Any(d => d != null && d.m_IsAlive && d.m_CurrentHealth > 0);
+
+            // allow EngageBattle to continue so victory/flee logic runs
+            if (!anyAlive)
             {
-                Log("[MultiMax] EncounterSession or EnemyDummies is null in EngageBattle");
+                Log("[MultiMax] 0 enemy alive → allow EngageBattle to finish cleanup");
                 return true;
             }
 
-            bool anyAlive = enc.m_EnemyDummies.Values.Any(d => d != null && d.m_IsAlive && d.m_CurrentHealth > 0);
-            if (!anyAlive)
-            {
-                Log("[MultiMax] 0 enemy alive → skip EngageBattle");
-                return false;
-            }
             return true;
         }
     }
-
     [PatchType(typeof(CharacterDummy))]
     public static class CharacterDummy_EngageBattle_Fixes
     {
@@ -938,52 +965,6 @@ namespace FTK_MultiMax_Rework_v2.Patches
             catch (Exception e)
             {
                 Debug.LogError($"[MultiMax] EnsureEnemyVictimsPatch error: {e}");
-            }
-        }
-    }
-
-    [PatchType(typeof(EncounterSession))]
-    public static class SafeTurnOffEnemyMarkersPatch
-    {
-        [PatchMethod("TurnOffAllEnemyMarkers")]
-        [PatchPosition(Prefix)]
-        public static bool SafeTurnOffMarkers(EncounterSession __instance)
-        {
-            try
-            {
-                if (__instance.m_EnemyDummies == null)
-                    return false;
-
-                foreach (var kv in __instance.m_EnemyDummies)
-                {
-                    var dummy = kv.Value;
-                    if (dummy == null)
-                        continue;
-
-                    // Usa reflection per accedere a m_EnemyMarker
-                    var markerField = typeof(EnemyDummy).GetField("m_EnemyMarker",
-                        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-
-                    if (markerField == null)
-                        continue;
-
-                    var marker = markerField.GetValue(dummy);
-                    if (marker == null)
-                        continue;
-
-                    // Chiama TurnOff sul marker
-                    var turnOffMethod = marker.GetType().GetMethod("TurnOff",
-                        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-
-                    turnOffMethod?.Invoke(marker, null);
-                }
-
-                return false;
-            }
-            catch (Exception e)
-            {
-                Log($"[MultiMax] SafeTurnOffMarkers error: {e}");
-                return false;
             }
         }
     }

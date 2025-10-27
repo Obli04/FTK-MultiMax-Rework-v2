@@ -9,6 +9,7 @@ using FTK_MultiMax_Rework_v2.PatchHelpers;
 using static FTK_MultiMax_Rework_v2.Main;
 using static FTK_MultiMax_Rework_v2.PatchHelpers.PatchPositions;
 using Object = UnityEngine.Object;
+using System.Collections;
 
 namespace FTK_MultiMax_Rework_v2.Patches
 {
@@ -86,7 +87,7 @@ namespace FTK_MultiMax_Rework_v2.Patches
 
                 __instance.m_EnemyHudDictionary.Clear();
                 // 3) Clear any old layout groups and add a single one
-                var row  = __instance.m_GridRow;
+                var row = __instance.m_GridRow;
                 var huds = __instance.m_EachEnemyHuds.Where(h => h != null).ToList();
                 int n = Mathf.Min(enemies.Count, huds.Count);
                 if (row == null) return;
@@ -112,7 +113,7 @@ namespace FTK_MultiMax_Rework_v2.Patches
                 for (int i = 0; i < n; i++)
                 {
                     var dummy = enemies[i];
-                    var hud   = huds[i]; // 1:1 index, not reversed
+                    var hud = huds[i]; // 1:1 index, not reversed
 
                     hud.gameObject.SetActive(true);
                     hud.transform.SetParent(row, false);
@@ -141,6 +142,54 @@ namespace FTK_MultiMax_Rework_v2.Patches
             catch (Exception e)
             {
                 Log($"[MultiMax] RebuildHUDLayout error: {e}");
+            }
+        }
+    }
+    
+    public static class FTKUtil
+    {
+        public static void DelayedAction(float seconds, Action act)
+        {
+            if (EncounterSession.Instance == null)
+                return;
+
+            EncounterSession.Instance.StartCoroutine(Run(seconds, act));
+        }
+
+        private static IEnumerator Run(float seconds, Action act)
+        {
+            yield return new WaitForSeconds(seconds);
+            act?.Invoke();
+        }
+    }[PatchType(typeof(uiEnemyHUD))]
+    public static class uiEnemyHUDFlickerFix
+    {
+        [PatchMethod("InitializeEnemyHud")]
+        [PatchPosition(Prefix)]
+        public static void HideBeforeInit(uiEnemyHUD __instance)
+        {
+            var cg = __instance.GetComponent<CanvasGroup>() ?? __instance.gameObject.AddComponent<CanvasGroup>();
+            cg.alpha = 0f;  // hide
+            cg.interactable = false;
+            cg.blocksRaycasts = false;
+        }
+
+        [PatchMethod("InitializeEnemyHud")]
+        [PatchPosition(Postfix)]
+        public static void ShowAfterRebuild(uiEnemyHUD __instance)
+        {
+            __instance.StartCoroutine(ShowNextFrame(__instance));
+        }
+
+        private static System.Collections.IEnumerator ShowNextFrame(uiEnemyHUD hud)
+        {
+            yield return null; // wait one frame (layout finished)
+            var cg = hud.GetComponent<CanvasGroup>();
+            if (cg != null)
+            {
+                cg.alpha = 1f;
+                cg.interactable = true;
+                cg.blocksRaycasts = true;
             }
         }
     }

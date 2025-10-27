@@ -99,7 +99,6 @@
     <Compile Include="DummiesHandler.cs" />
     <Compile Include="Main.cs" />
     <Compile Include="Patches\DummyAttackSlideExpandPatch.cs" />
-    <Compile Include="Patches\enemyMarkerPatches.cs" />
     <Compile Include="Patches\enemySpawnPatches.cs" />
     <Compile Include="Patches\groupAttackPatches.cs" />
     <Compile Include="Patches\SceneDioramaPatches.cs" />

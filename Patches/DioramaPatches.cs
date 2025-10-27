@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 using FTK_MultiMax_Rework_v2.PatchHelpers;
 using UnityEngine;
@@ -12,28 +13,6 @@ namespace FTK_MultiMax_Rework_v2.Patches
     [PatchType(typeof(Diorama))]
     public class DioramaPatches
     {
-        [PatchMethod("_resetTargetQueue")]
-        [PatchPosition(Prefix)]
-        public static void DummySlide()
-        {
-            DummyAttackSlide[] attackSlides = Object.FindObjectsOfType<DummyAttackSlide>();
-            foreach (DummyAttackSlide dummyAttackSlide in attackSlides)
-            {
-
-                // 1000 Seems like a lot... The default value is 3 for god's sake
-                // [Polars Bear] TODO: Fix
-                if (dummyAttackSlide.m_Distances.Length < 1000)
-                {
-                    float[] newDistances = new float[1000];
-
-                    Array.Copy(dummyAttackSlide.m_Distances, newDistances, dummyAttackSlide.m_Distances.Length);
-
-                    dummyAttackSlide.m_Distances = newDistances;
-
-                    Log(dummyAttackSlide.m_Distances);
-                }
-            }
-        }
 
         [PatchMethod("SetupTargets")]
         [PatchPosition(Postfix)]
