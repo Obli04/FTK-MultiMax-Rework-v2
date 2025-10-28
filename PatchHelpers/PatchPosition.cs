@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace FTK_MultiMax_Rework_v2.PatchHelpers;
+namespace FTK_MultiMax_Rework.PatchHelpers;
 
 public class PatchPosition : Attribute
 {

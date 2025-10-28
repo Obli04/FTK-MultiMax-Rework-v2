@@ -1,9 +1,9 @@
 using System.Collections.Generic;
-using FTK_MultiMax_Rework_v2.PatchHelpers;
+using FTK_MultiMax_Rework.PatchHelpers;
 using UnityEngine;
-using static FTK_MultiMax_Rework_v2.PatchHelpers.PatchPositions;
+using static FTK_MultiMax_Rework.PatchHelpers.PatchPositions;
 
-namespace FTK_MultiMax_Rework_v2.Patches
+namespace FTK_MultiMax_Rework.Patches
 {
     [PatchType(typeof(uiActiveTimings))]
     public static class ExpandBattleStanceUI

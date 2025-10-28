@@ -3,16 +3,16 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using static FTK_MultiMax_Rework_v2.Main;
+using static FTK_MultiMax_Rework.Main;
 using AccessTools = HarmonyLib.AccessTools;
 using HarmonyMethod = HarmonyLib.HarmonyMethod;
-using static FTK_MultiMax_Rework_v2.PatchHelpers.PatchPositions;
+using static FTK_MultiMax_Rework.PatchHelpers.PatchPositions;
 
-namespace FTK_MultiMax_Rework_v2.PatchHelpers
+namespace FTK_MultiMax_Rework.PatchHelpers
 {
     public static class PatchUtils
     {
-        private static void PatchMethod(Type target, PatchData data) {
+        public static void PatchMethod(Type target, PatchData data) {
             
             MethodInfo original = AccessTools.Method(target, data.patchedMethodName, data.parameters);
             HarmonyMethod method = new HarmonyMethod(data.patchMethod);
@@ -105,7 +105,7 @@ namespace FTK_MultiMax_Rework_v2.PatchHelpers
         }
     }
 
-    struct PatchData
+    public struct PatchData
     {
         public PatchData(string patchedMethodName, PatchPositions position, MethodInfo patchMethod, Type[]? parameters)
         {

@@ -1,10 +1,10 @@
-﻿using FTK_MultiMax_Rework_v2.PatchHelpers;
-using static FTK_MultiMax_Rework_v2.PatchHelpers.PatchPositions;
+﻿using FTK_MultiMax_Rework.PatchHelpers;
+using static FTK_MultiMax_Rework.PatchHelpers.PatchPositions;
 using UnityEngine;
 using System;
-using static FTK_MultiMax_Rework_v2.Main;
+using static FTK_MultiMax_Rework.Main;
 
-namespace FTK_MultiMax_Rework_v2.Patches
+namespace FTK_MultiMax_Rework.Patches
 {
     [PatchType(typeof(uiCharacterCreateRoot))]
     public class uiCharacterCreateRootPatches
@@ -34,7 +34,6 @@ namespace FTK_MultiMax_Rework_v2.Patches
                 Transform[] oldUITargets = __instance.m_CreateUITargets;
                 Transform[] oldCamTargets = SelectScreenCamera.Instance.m_PlayerTargets;
 
-                // fallback sugli ultimi elementi “classici”
                 Transform uiLast = oldUITargets[oldUITargets.Length - 1];
                 Transform camLast = oldCamTargets[oldCamTargets.Length - 1];
 
@@ -68,7 +67,6 @@ namespace FTK_MultiMax_Rework_v2.Patches
                 __instance.m_CreateUITargets = newUITargets;
                 SelectScreenCamera.Instance.m_PlayerTargets = newCamTargets;
 
-                // Re-layout UI targets
                 for (i = 0; i < newUITargets.Length; i++)
                 {
                     RectTransform rect = newUITargets[i].GetComponent<RectTransform>();
@@ -79,7 +77,6 @@ namespace FTK_MultiMax_Rework_v2.Patches
                     }
                 }
 
-                // Re-layout camera targets (interpola fra 0 e 2 se ci sono, altrimenti fra 0 e last)
                 Vector3 left = newCamTargets[0].position;
                 int rightIndex = (newCamTargets.Length >= 3) ? 2 : (newCamTargets.Length - 1);
                 if (rightIndex < 0) rightIndex = 0;

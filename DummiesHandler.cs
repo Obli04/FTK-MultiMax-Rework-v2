@@ -1,9 +1,9 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
-using static FTK_MultiMax_Rework_v2.Main;
+using static FTK_MultiMax_Rework.Main;
 using System.Reflection;
 
-namespace FTK_MultiMax_Rework_v2
+namespace FTK_MultiMax_Rework
 {
     public class DummiesHandler
     {

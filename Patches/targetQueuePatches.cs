@@ -1,13 +1,13 @@
 ﻿using System.Collections.Generic;
-using FTK_MultiMax_Rework_v2.PatchHelpers;
+using FTK_MultiMax_Rework.PatchHelpers;
 using UnityEngine;
 using System;
 using HarmonyLib;
 using System.Reflection;
-using static FTK_MultiMax_Rework_v2.Main;
-using static FTK_MultiMax_Rework_v2.PatchHelpers.PatchPositions;
+using static FTK_MultiMax_Rework.Main;
+using static FTK_MultiMax_Rework.PatchHelpers.PatchPositions;
 
-namespace FTK_MultiMax_Rework_v2.Patches
+namespace FTK_MultiMax_Rework.Patches
 {
     [PatchType(typeof(Diorama))]
     public static class DioramaGetQueuePatch
@@ -25,7 +25,6 @@ namespace FTK_MultiMax_Rework_v2.Patches
         {
             _centerPos = Vector3.zero;
 
-            // ✅ Skip safely if nothing to target
             if (_targetList == null || _targetList.Count == 0 || _count <= 0)
             {
                 _queue = _queue ?? new List<Transform>();
@@ -66,11 +65,9 @@ namespace FTK_MultiMax_Rework_v2.Patches
                     _queue.Add(t);
                 }
 
-                // ✅ Fill remainder if necessary to prevent underflows
                 while (_queue.Count < Mathf.Max(1, GameFlowMC.gMaxEnemies) && _queue.Count > 0)
                     _queue.Add(_queue[_queue.Count - 1]);
 
-                // ✅ Calculate center safely
                 if (_queue.Count > 0)
                 {
                     Vector3 sum = Vector3.zero;
@@ -79,12 +76,12 @@ namespace FTK_MultiMax_Rework_v2.Patches
                     _centerPos = sum / _queue.Count;
                 }
 
-                return false; // use our safe custom queue
+                return false;
             }
             catch (Exception e)
             {
                 Log($"[MultiMax] ExpandTargetQueue exception: {e}");
-                return true; // fallback to vanilla if anything breaks
+                return true;
             }
         }
     }

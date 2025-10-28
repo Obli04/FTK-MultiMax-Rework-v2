@@ -1,10 +1,10 @@
 ﻿using System.Collections.Generic;
 using System.Reflection;
-using FTK_MultiMax_Rework_v2.PatchHelpers;
-using static FTK_MultiMax_Rework_v2.PatchHelpers.PatchPositions;
+using FTK_MultiMax_Rework.PatchHelpers;
+using static FTK_MultiMax_Rework.PatchHelpers.PatchPositions;
 using Object = UnityEngine.Object;
 
-namespace FTK_MultiMax_Rework_v2.Patches
+namespace FTK_MultiMax_Rework.Patches
 {
     [PatchType(typeof(uiPortraitHolder))]
     public class uiPortraitHolderPatches

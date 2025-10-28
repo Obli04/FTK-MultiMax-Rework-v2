@@ -7,8 +7,8 @@
     <ProjectGuid>{93679FB8-D7D5-4E0D-841D-239D6BD70317}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>FTK_MultiMax_Rework_v2.1</RootNamespace>
-    <AssemblyName>FTK MultiMax Rework v2.1</AssemblyName>
+    <RootNamespace>FTK_MultiMax_Rework_v3</RootNamespace>
+    <AssemblyName>FTK MultiMax Rework v3</AssemblyName>
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
@@ -32,7 +32,7 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Test|AnyCPU' ">
-    <OutputPath>C:\Users\Lars\AppData\Roaming\r2modmanPlus-local\ForTheKing\profiles\Default\BepInEx\plugins\Unknown-FTK MultiMax Rework v2.1</OutputPath>
+    <OutputPath>C:\Users\Lars\AppData\Roaming\r2modmanPlus-local\ForTheKing\profiles\Default\BepInEx\plugins\Unknown-FTK MultiMax Rework v3</OutputPath>
     <Optimize>true</Optimize>
   </PropertyGroup>
   <ItemGroup>
@@ -99,8 +99,12 @@
     <Compile Include="DummiesHandler.cs" />
     <Compile Include="Main.cs" />
     <Compile Include="Patches\DummyAttackSlideExpandPatch.cs" />
+    <Compile Include="Patches\encounterPatches.cs" />
     <Compile Include="Patches\enemySpawnPatches.cs" />
     <Compile Include="Patches\groupAttackPatches.cs" />
+    <Compile Include="Patches\MultiMaxNetworkRPC.cs" />
+    <Compile Include="Patches\newDifficultyPatches.cs" />
+    <Compile Include="Patches\ownershipPatches.cs" />
     <Compile Include="Patches\SceneDioramaPatches.cs" />
     <Compile Include="Patches\DioramaPatches.cs" />
     <Compile Include="Patches\PlayerHelperPatches.cs" />
@@ -116,12 +120,15 @@
     <Compile Include="Patches\uiPortraitHolderManagerPatches.cs" />
     <Compile Include="Patches\uiPortraitHolderPatches.cs" />
     <Compile Include="Patches\uiStartGamePatches.cs" />
+    <Compile Include="Patches\victoryCheckerPatches.cs" />
+    <Compile Include="PatchHelpers\NetUtil.cs" />
     <Compile Include="PatchHelpers\PatchMethod.cs" />
     <Compile Include="PatchHelpers\PatchParams.cs" />
     <Compile Include="PatchHelpers\PatchPosition.cs" />
     <Compile Include="PatchHelpers\PatchPositions.cs" />
     <Compile Include="PatchHelpers\PatchType.cs" />
     <Compile Include="PatchHelpers\PatchUtils.cs" />
+    <Compile Include="PatchHelpers\TurnHelper.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RoomHandler.cs" />
     <Compile Include="TargetPositions.cs" />

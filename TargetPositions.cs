@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace FTK_MultiMax_Rework_v2;
+namespace FTK_MultiMax_Rework;
 public static class TargetPositions
 {
     public static void Fix(Transform root)

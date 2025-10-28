@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using FTK_MultiMax_Rework_v2.PatchHelpers;
-using static FTK_MultiMax_Rework_v2.PatchHelpers.PatchPositions;
+using FTK_MultiMax_Rework.PatchHelpers;
+using static FTK_MultiMax_Rework.PatchHelpers.PatchPositions;
 using UnityEngine;
 
-namespace FTK_MultiMax_Rework_v2.Patches
+namespace FTK_MultiMax_Rework.Patches
 {
     [PatchType(typeof(uiHudScroller))]
     public class uiHudScrollerPatches

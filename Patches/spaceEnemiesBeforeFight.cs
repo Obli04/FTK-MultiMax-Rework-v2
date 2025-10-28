@@ -5,15 +5,15 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
-using FTK_MultiMax_Rework_v2.PatchHelpers;
-using static FTK_MultiMax_Rework_v2.PatchHelpers.PatchPositions;
-using static FTK_MultiMax_Rework_v2.Main;
+using FTK_MultiMax_Rework.PatchHelpers;
+using static FTK_MultiMax_Rework.PatchHelpers.PatchPositions;
+using static FTK_MultiMax_Rework.Main;
 using UnityEngine.Animations;
 using GridEditor;
 using Google2u;
 using Newtonsoft.Json;
 
-namespace FTK_MultiMax_Rework_v2.Patches
+namespace FTK_MultiMax_Rework.Patches
 {
     [PatchType(typeof(EncounterSession))]
     public static class DioramaIntroSpacingFix

@@ -2,12 +2,12 @@
 using HarmonyLib;
 using System;
 using System.Collections.Generic;
-using FTK_MultiMax_Rework_v2.PatchHelpers;
-using static FTK_MultiMax_Rework_v2.PatchHelpers.PatchPositions;
-using static FTK_MultiMax_Rework_v2.Main;
+using FTK_MultiMax_Rework.PatchHelpers;
+using static FTK_MultiMax_Rework.PatchHelpers.PatchPositions;
+using static FTK_MultiMax_Rework.Main;
 using UnityEngine;
 
-namespace FTK_MultiMax_Rework_v2.Patches
+namespace FTK_MultiMax_Rework.Patches
 {
     [PatchType(typeof(MiniHexInfo))]
     public class ShopStockRefreshPatch

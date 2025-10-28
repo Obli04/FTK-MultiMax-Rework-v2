@@ -2,13 +2,13 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
-using FTK_MultiMax_Rework_v2.PatchHelpers;
+using FTK_MultiMax_Rework.PatchHelpers;
 using UnityEngine;
-using static FTK_MultiMax_Rework_v2.Main;
-using static FTK_MultiMax_Rework_v2.PatchHelpers.PatchPositions;
+using static FTK_MultiMax_Rework.Main;
+using static FTK_MultiMax_Rework.PatchHelpers.PatchPositions;
 using Object = UnityEngine.Object;
 
-namespace FTK_MultiMax_Rework_v2.Patches
+namespace FTK_MultiMax_Rework.Patches
 {
     [PatchType(typeof(Diorama))]
     public class DioramaPatches

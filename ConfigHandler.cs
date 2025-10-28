@@ -3,7 +3,7 @@ using BepInEx;
 using System.IO;
 using UnityEngine;
 
-namespace FTK_MultiMax_Rework_v2 {
+namespace FTK_MultiMax_Rework {
     public static class ConfigHandler {
         public static ConfigEntry<int> MaxPlayersConfig { get; private set; }
 
@@ -13,7 +13,7 @@ namespace FTK_MultiMax_Rework_v2 {
 
             MaxPlayersConfig = configFile.Bind("General",
                                                "MaxPlayers",
-                                               5,
+                                               4,
                                                "The max number of players");
 
             if (!File.Exists(configFilePath)) {

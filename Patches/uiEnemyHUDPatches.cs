@@ -4,14 +4,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
-using UnityEngine.UI; // ← REQUIRED for LayoutElement, Slider, GridLayoutGroup
-using FTK_MultiMax_Rework_v2.PatchHelpers;
-using static FTK_MultiMax_Rework_v2.Main;
-using static FTK_MultiMax_Rework_v2.PatchHelpers.PatchPositions;
+using UnityEngine.UI;
+using FTK_MultiMax_Rework.PatchHelpers;
+using static FTK_MultiMax_Rework.Main;
+using static FTK_MultiMax_Rework.PatchHelpers.PatchPositions;
 using Object = UnityEngine.Object;
 using System.Collections;
 
-namespace FTK_MultiMax_Rework_v2.Patches
+namespace FTK_MultiMax_Rework.Patches
 {
     [PatchType(typeof(uiEnemyHUD))]
     public static class uiEnemyHUDPatch

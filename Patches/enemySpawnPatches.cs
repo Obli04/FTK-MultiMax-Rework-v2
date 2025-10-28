@@ -5,16 +5,111 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
-using FTK_MultiMax_Rework_v2.PatchHelpers;
-using static FTK_MultiMax_Rework_v2.PatchHelpers.PatchPositions;
-using static FTK_MultiMax_Rework_v2.Main;
+using FTK_MultiMax_Rework.PatchHelpers;
+using static FTK_MultiMax_Rework.PatchHelpers.PatchPositions;
+using static FTK_MultiMax_Rework.Main;
 using UnityEngine.Animations;
 using GridEditor;
 using Google2u;
 using Newtonsoft.Json;
 
-namespace FTK_MultiMax_Rework_v2.Patches
+namespace FTK_MultiMax_Rework.Patches
 {
+    [PatchType(typeof(EnemyDummy))]
+    public static class EnemySchedule_SafeDefaults
+    {
+        [PatchMethod("InitEnemyDummyForCombat")]
+        [PatchPosition(Postfix)]
+        public static void EnsureSchedule(EnemyDummy __instance)
+        {
+            if (__instance.m_AttackSchedule == null || __instance.m_AttackSchedule.m_Schedule == null)
+            {
+                // Provide a 1-step harmless fallback to avoid null deref / OOB
+                __instance.m_AttackScheduleList = new List<AttackSchedule.AttackType> { AttackSchedule.AttackType.Normal };
+                __instance.m_AttackScheduleIndex = 0;
+                Debug.Log($"[MultiMax] {__instance.name} had NULL schedule → set harmless fallback");
+            }
+            else if (__instance.m_AttackScheduleList == null || __instance.m_AttackScheduleList.Count == 0)
+            {
+                __instance.m_AttackScheduleList = new List<AttackSchedule.AttackType>(__instance.m_AttackSchedule.m_Schedule);
+                __instance.m_AttackScheduleIndex = 0;
+            }
+        }
+
+        [PatchMethod("SetAttackDecision")]
+        [PatchPosition(Prefix)]
+        public static bool GuardDecision(EnemyDummy __instance)
+        {
+            int sched = __instance.m_AttackSchedule?.m_Schedule?.Count ?? 0;
+            int list = __instance.m_AttackScheduleList?.Count ?? 0;
+            if (Mathf.Max(sched, list) == 0)
+            {
+                // No real action available → just advance the round
+                Debug.Log($"[MultiMax] {__instance.name} has no schedule → skipping enemy action");
+                EncounterSessionMC.Instance?.StartNextCombatRound2();
+                return false;
+            }
+            if (__instance.m_AttackScheduleIndex < 0 || __instance.m_AttackScheduleIndex >= Mathf.Max(sched, list))
+                __instance.m_AttackScheduleIndex = 0;
+
+            return true;
+        }
+    }
+    [PatchType(typeof(EnemyDummy))]
+    public static class EnemyDummy_SkipDeadVictims
+    {
+        [PatchMethod("SetAttackDecision")]
+        [PatchPosition(Prefix)]
+        public static bool GuardAgainstDeadVictim(EnemyDummy __instance)
+        {
+            var enc = EncounterSession.Instance;
+            if (enc?.m_PlayerDummies == null) return true;
+
+            // Try get current victim
+            if (__instance.m_CurrentVictimID != null &&
+                enc.m_Dummies.TryGetValue(__instance.m_CurrentVictimID, out var victim))
+            {
+                if (victim == null || !victim.m_IsAlive)
+                {
+                    Debug.Log($"[MultiMax] {__instance.name} had dead victim → reassigning target");
+
+                    // Pick first alive player dummy
+                    var newVictim = enc.m_PlayerDummies.Values
+                        .FirstOrDefault(p => p != null && p.m_IsAlive && p.m_IsAlive);
+
+                    if (newVictim != null)
+                    {
+                        __instance.m_CurrentVictimID = newVictim.FID;
+                        Debug.Log($"[MultiMax] {__instance.name} retargeted to {newVictim.name}");
+                    }
+                    else
+                    {
+                        // No valid targets left → skip attack completely
+                        Debug.Log($"[MultiMax] {__instance.name} found no alive players → skipping SetAttackDecision");
+                        return false;
+                    }
+                }
+            }
+            else
+            {
+                // No target set at all → choose a live one
+                var newVictim = enc.m_PlayerDummies.Values
+                    .FirstOrDefault(p => p != null && p.m_IsAlive && p.m_IsAlive);
+
+                if (newVictim == null)
+                {
+                    Debug.Log($"[MultiMax] {__instance.name} found no victim to target → skipping SetAttackDecision");
+                    return false;
+                }
+
+                __instance.m_CurrentVictimID = newVictim.FID;
+                Debug.Log($"[MultiMax] {__instance.name} assigned fallback victim {newVictim.name}");
+            }
+
+            return true; // continue with valid victim
+        }
+    }
+    
     [PatchType(typeof(EncounterSession))]
     public static class ForceExpandEnemyTypes
     {
@@ -389,7 +484,18 @@ namespace FTK_MultiMax_Rework_v2.Patches
 
                     foreach (var dead in toRemove)
                         fightOrder.Remove(dead);
+
+                    foreach (var key in keysToRemove)
+                        enc.m_EnemyDummies.Remove(key);
+                        
                 }
+                if (!enc.m_EnemyDummies.Values.Any(d => d != null && d.m_IsAlive && d.m_CurrentHealth > 0))
+                {
+                    Log("[MultiMax] All enemies dead — forcing combat end");
+                    __instance.m_IsInCombat = false;
+                    GameLogic.Instance.StopAllCoroutines();
+                }
+
 
                 // 3️⃣ Log sanity check
                 Log($"[MultiMax] Purged {keysToRemove.Count} dead enemies, fight order now clean ({enc.m_EnemyDummies.Count} left)");
@@ -400,6 +506,8 @@ namespace FTK_MultiMax_Rework_v2.Patches
             }
         }
     }
+
+
     [PatchType(typeof(uiBattleStanceButtons))]
     public static class SafeInitializeWithValidEnemy
     {
@@ -712,15 +820,8 @@ namespace FTK_MultiMax_Rework_v2.Patches
                             deadKeys.Add(kv.Key);
                         }
                     }
-
-                    foreach (var key in deadKeys)
-                    {
-                        if (__instance.m_EnemyHudDictionary[key] != null)
-                        {
-                            __instance.m_EnemyHudDictionary[key].gameObject.SetActive(false);
-                        }
+                    foreach (var key in deadKeys.ToList())
                         __instance.m_EnemyHudDictionary.Remove(key);
-                    }
 
                     if (deadKeys.Count > 0)
                     {
@@ -836,6 +937,7 @@ namespace FTK_MultiMax_Rework_v2.Patches
             }
         }
     }
+    /*
     [PatchType(typeof(CharacterDummy))]
     public static class MarkEnemyDead_EnsureStatus
     {
@@ -870,7 +972,7 @@ namespace FTK_MultiMax_Rework_v2.Patches
                 Debug.LogError($"[MultiMax] EnsureEnemyStatusOnDeath error: {e}");
             }
         }
-    }
+    }*/
 
     [PatchType(typeof(uiEnemyHUD))]
     public static class SafeEnemyHUDOperations
@@ -918,7 +1020,7 @@ namespace FTK_MultiMax_Rework_v2.Patches
                         hud?.SetCurrent(false);
                 }
 
-                foreach (var kv in __instance.m_ATPortraitTable)
+                foreach (var kv in __instance.m_ATPortraitTable.ToList())
                     kv.Value?.SetCurrent(false);
 
                 var stance = GameObject.FindObjectOfType<uiBattleStanceButtons>();
@@ -968,7 +1070,7 @@ namespace FTK_MultiMax_Rework_v2.Patches
             }
         }
     }
-    
+
     [PatchType(typeof(CharacterDummy))]
     public static class EnsureBattleUIOnPlayerDecision
     {
@@ -978,91 +1080,112 @@ namespace FTK_MultiMax_Rework_v2.Patches
         {
             try
             {
-                // Ignore enemies
-                if (__instance.FID.IsEnemy())
-                    return;
+                if (__instance.FID.IsEnemy()) return;
 
-                var ftkUI = FTKUI.Instance;
-                if (ftkUI == null)
-                {
-                    Log("[MultiMax] FTKUI.Instance is null!");
-                    return;
-                }
+                var stance = FTKUI.Instance?.m_BattleStanceButtons
+                          ?? UnityEngine.Object.FindObjectOfType<uiBattleStanceButtons>();
 
-                // Try to find stance in FTKUI hierarchy
-                var stance = ftkUI.m_BattleStanceButtons
-                             ?? ftkUI.GetComponentInChildren<uiBattleStanceButtons>(includeInactive: true)
-                             ?? UnityEngine.Object.FindObjectOfType<uiBattleStanceButtons>();
-
-                // If still missing, recreate it from FTKUI prefab reference
                 if (stance == null)
                 {
-                    Log("[MultiMax] uiBattleStanceButtons missing, attempting recreation...");
-
-                    var prefabField = typeof(FTKUI).GetField("m_BattleStanceButtons",
-                        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-
-                    var prefab = prefabField?.GetValue(ftkUI) as uiBattleStanceButtons;
-                    if (prefab != null)
-                    {
-                        stance = UnityEngine.Object.Instantiate(prefab, ftkUI.transform);
-                        ftkUI.m_BattleStanceButtons = stance;
-                        Log("[MultiMax] Recreated uiBattleStanceButtons from FTKUI prefab");
-                    }
-                    else
-                    {
-                        Log("[MultiMax] Could not find m_BattleStanceButtons prefab in FTKUI");
-                        return;
-                    }
-                }
-                bool isMyTurn = false;
-                var mc = EncounterSessionMC.Instance;
-                var enc = EncounterSession.Instance;
-
-                if (mc != null && enc != null)
-                {
-                    // Try fight order
-                    var fightOrderField = typeof(EncounterSessionMC)
-                        .GetField("m_FightOrder", BindingFlags.Instance | BindingFlags.NonPublic);
-                    var fightOrder = fightOrderField?.GetValue(mc) as IList;
-                    if (fightOrder != null && fightOrder.Count > 0)
-                    {
-                        var first = fightOrder[0];
-                        var pidField = first.GetType().GetField("m_Pid");
-                        var pidObj = pidField?.GetValue(first);
-                        if (pidObj is FTKPlayerID pid && pid.Equals(__instance.FID))
-                            isMyTurn = true;
-                    }
-
-                    // fallback: current attacker or local dummy
-                    if (!isMyTurn && mc.m_PlayerAttacker.Equals(__instance.FID))
-                        isMyTurn = true;
-                }
-
-                // final fallback for host or singleplayer
-                if (GameLogic.Instance.IsSinglePlayer() || __instance.IsOwner)
-                    isMyTurn = true;
-
-                if (!isMyTurn)
-                {
-                    stance.gameObject.SetActive(false);
-                    Log($"[MultiMax] Hidden battle stance UI (not local player's turn)");
+                    Debug.LogError("[MultiMax] uiBattleStanceButtons not found!");
                     return;
                 }
 
-                stance.gameObject.SetActive(true);
-                stance.Initialize(_refresh: false);
-                Log($"[MultiMax] Shown battle stance UI for {__instance.name}");
+                Debug.Log($"[MultiMax] EngageAttack for {__instance.name}, TurnIndex={__instance.FID.m_TurnIndex}");
 
+                bool isMyTurn = false;
 
-                stance.gameObject.SetActive(true);
-                stance.Initialize(_refresh: false);
-                Log($"[MultiMax] Shown battle stance UI for {__instance.name}");
+                // ✅ Strategia 1: Singleplayer
+                if (GameLogic.Instance?.IsSinglePlayer() ?? false)
+                {
+                    isMyTurn = true;
+                    Debug.Log("[MultiMax] Singleplayer mode → my turn");
+                }
+                // ✅ Strategia 2: Usa la ownership map
+                else if (OwnershipManager.IsMine(__instance.FID.m_TurnIndex))
+                {
+                    isMyTurn = true;
+                    Debug.Log($"[MultiMax] OwnershipMap says {__instance.name} is mine → my turn");
+                }
+                // ✅ Strategia 3: Fallback su NetUtil.IsMyTurn()
+                else
+                {
+                    isMyTurn = NetUtil.IsMyTurn();
+                    Debug.Log($"[MultiMax] NetUtil.IsMyTurn() = {isMyTurn}");
+                }
 
+                if (isMyTurn)
+                {
+                    stance.gameObject.SetActive(true);
+                    stance.Initialize(_refresh: false);
+                    Debug.Log($"[MultiMax] ✅ Shown UI for {__instance.name}");
+                }
+                else
+                {
+                    stance.gameObject.SetActive(false);
+                    Debug.Log($"[MultiMax] ❌ Hidden UI for {__instance.name}");
+                }
             }
             catch (Exception e)
             {
                 Debug.LogError($"[MultiMax] EnsureBattleUIOnPlayerDecision error: {e}");
+            }
+        }
+    }
+
+    [PatchType(typeof(EncounterSession))]
+    public static class DebugDummyOwnership
+    {
+        [PatchMethod("InitPlayerDummiesForCombat")]
+        [PatchPosition(Postfix)]
+        public static void LogAllOwnership(EncounterSession __instance)
+        {
+            try
+            {
+                if (__instance.m_PlayerDummies == null) return;
+
+                Debug.Log($"[MultiMax] === OWNERSHIP DEBUG (PhotonPlayer.ID={PhotonNetwork.player?.ID ?? -1}) ===");
+
+                foreach (var kv in __instance.m_PlayerDummies)
+                {
+                    var dummy = kv.Value;
+                    if (dummy == null) continue;
+
+                    Debug.Log($"[MultiMax] {dummy.name}:");
+                    Debug.Log($"  - TurnIndex: {dummy.FID.m_TurnIndex}");
+                    Debug.Log($"  - PhotonID: {dummy.FID.m_PhotonID}");
+                    Debug.Log($"  - IsOwner: {dummy.IsOwner}");
+                }
+
+                Debug.Log("[MultiMax] === END OWNERSHIP DEBUG ===");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[MultiMax] DebugDummyOwnership error: {e}");
+            }
+        }
+    }
+
+    [PatchType(typeof(CharacterDummy))]
+    public static class DebugOwnership
+    {
+        [PatchMethod("EngageAttack")]
+        [PatchPosition(Prefix)]
+        public static void LogOwnership(CharacterDummy __instance)
+        {
+            if (__instance.FID.IsPlayer())
+            {
+                var mc = EncounterSessionMC.Instance;
+                Debug.Log($"[MultiMax] DEBUG {__instance.name}:");
+                Debug.Log($"  - IsOwner: {__instance.IsOwner}");
+                Debug.Log($"  - FID.m_TurnIndex: {__instance.FID.m_TurnIndex}");
+                Debug.Log($"  - FID.m_PhotonID: {__instance.FID.m_PhotonID}");
+                Debug.Log($"  - PhotonNetwork.player.ID: {PhotonNetwork.player?.ID ?? -1}");
+
+                if (mc != null)
+                {
+                    Debug.Log($"  - m_PlayerAttacker.m_TurnIndex: {mc.m_PlayerAttacker.m_TurnIndex}");
+                }
             }
         }
     }
@@ -1246,4 +1369,5 @@ namespace FTK_MultiMax_Rework_v2.Patches
             }
         }
     }
+    
 }
