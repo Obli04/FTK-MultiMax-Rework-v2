@@ -287,7 +287,6 @@ namespace FTK_MultiMax_Rework.Patches
         [PatchPosition(Postfix)]
         public static void resetTargetPatch(Diorama __instance)
         {
-            var bf = BindingFlags.Instance | BindingFlags.NonPublic;
             int enemyCount = 0;
             var enemyProp = typeof(Diorama).GetProperty("_dioramaEnemyCount", BindingFlags.NonPublic | BindingFlags.Instance);
             if (enemyProp != null)

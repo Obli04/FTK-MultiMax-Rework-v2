@@ -164,7 +164,6 @@ namespace FTK_MultiMax_Rework.Patches
         {
             try
             {
-                // Verifica se esiste già
                 if (_handlerInstance != null)
                 {
                     Debug.Log("[MultiMax] RPC handler already exists");
@@ -179,53 +178,30 @@ namespace FTK_MultiMax_Rework.Patches
                     return;
                 }
 
-                // ✅ SOLO il MasterClient può instantiare oggetti di scena
                 if (!PhotonNetwork.isMasterClient)
                 {
-                    // Try read viewID from room custom properties
-                    if (PhotonNetwork.room != null
-                        && PhotonNetwork.room.CustomProperties != null
-                        && PhotonNetwork.room.CustomProperties.ContainsKey("MM_RPCVID"))
-                    {
-                        int vid = (int)PhotonNetwork.room.CustomProperties["MM_RPCVID"];
-                        var go = new GameObject("MultiMaxRPCHandler");
-                        var pv = go.AddComponent<PhotonView>();
-                        pv.viewID = vid;                         // <-- match Master's id
-                        pv.ownershipTransfer = OwnershipOption.Fixed;
-                        pv.synchronization = ViewSynchronization.Off;
-                        go.AddComponent<MultiMaxNetworkRPC>();
-                        GameObject.DontDestroyOnLoad(go);
-                        _handlerInstance = go;
-                        Debug.Log($"[MultiMax] Client created RPC handler with viewID={vid}");
-                    }
-                    else
-                    {
-                        Debug.Log("[MultiMax] Client: viewID not yet published, will poll...");
-                        Main.SafeCoroutine.Run(WaitForHandlerViewId());
-                    }
+                    Debug.Log("[MultiMax] Client waiting for MasterClient to create handler");
+                    SafeCoroutine.Run(WaitForHandlerFromMaster());
                     return;
                 }
 
-                // ✅ Crea manualmente ma marca come scene object
+                // ✅ MasterClient crea handler
                 var go = new GameObject("MultiMaxRPCHandler");
                 var pv = go.AddComponent<PhotonView>();
-
-                // Assegna un viewID di scena
                 pv.viewID = PhotonNetwork.AllocateSceneViewID();
-                // after allocating pv.viewID
+                pv.ownershipTransfer = OwnershipOption.Fixed;
+                pv.synchronization = ViewSynchronization.Off;
+
+                // ✅ Pubblica viewID nelle room properties
                 var props = new ExitGames.Client.Photon.Hashtable { { "MM_RPCVID", pv.viewID } };
                 PhotonNetwork.room.SetCustomProperties(props);
-                pv.ownershipTransfer = OwnershipOption.Fixed;
-                pv.synchronization = ViewSynchronization.Off; // non serve sincronizzare transform
 
                 go.AddComponent<MultiMaxNetworkRPC>();
                 GameObject.DontDestroyOnLoad(go);
-
                 _handlerInstance = go;
 
                 Debug.Log($"[MultiMax] ✅ MasterClient created RPC handler, viewID={pv.viewID}");
 
-                // ✅ Invia un RPC vuoto per "svegliare" i client
                 SafeCoroutine.Run(NotifyClientsHandlerReady(pv));
             }
             catch (Exception e)
@@ -233,15 +209,17 @@ namespace FTK_MultiMax_Rework.Patches
                 Debug.LogError($"[MultiMax] CreateRPCHandlerOnCombatStart error: {e}");
             }
         }
-        private static IEnumerator WaitForHandlerViewId()
+
+        private static IEnumerator WaitForHandlerFromMaster()
         {
-            float t = 0f;
-            while (t < 5f) // 5s timeout
+            float timeout = 0f;
+            while (timeout < 5f)
             {
                 var room = PhotonNetwork.room;
-                if (room != null && room.CustomProperties != null && room.CustomProperties.ContainsKey("MM_RPCVID"))
+                if (room?.CustomProperties != null && room.CustomProperties.ContainsKey("MM_RPCVID"))
                 {
                     int vid = (int)room.CustomProperties["MM_RPCVID"];
+
                     var go = new GameObject("MultiMaxRPCHandler");
                     var pv = go.AddComponent<PhotonView>();
                     pv.viewID = vid;
@@ -250,23 +228,21 @@ namespace FTK_MultiMax_Rework.Patches
                     go.AddComponent<MultiMaxNetworkRPC>();
                     GameObject.DontDestroyOnLoad(go);
                     _handlerInstance = go;
-                    Debug.Log($"[MultiMax] Client late-created RPC handler with viewID={vid}");
+
+                    Debug.Log($"[MultiMax] ✅ Client created handler with viewID={vid}");
                     yield break;
                 }
-                t += Time.deltaTime;
+                timeout += Time.deltaTime;
                 yield return null;
             }
-            Debug.LogError("[MultiMax] Timeout waiting for MM_RPCVID; RPCs will fail.");
+            Debug.LogError("[MultiMax] Timeout waiting for MM_RPCVID");
         }
 
         private static IEnumerator NotifyClientsHandlerReady(PhotonView pv)
         {
-            // Aspetta che Photon sincronizzi il viewID
             yield return new WaitForSeconds(1.5f);
-
             if (pv != null && pv.viewID != 0)
             {
-                // Invia un ping per verificare che i client ricevano gli RPC
                 pv.RPC("PingTest", PhotonTargets.Others);
                 Debug.Log($"[MultiMax] Sent ping to clients via viewID {pv.viewID}");
             }
@@ -280,10 +256,11 @@ namespace FTK_MultiMax_Rework.Patches
             {
                 GameObject.Destroy(_handlerInstance);
                 _handlerInstance = null;
-                Debug.Log("[MultiMax] RPC handler destroyed after combat");
             }
             if (PhotonNetwork.isMasterClient && PhotonNetwork.room != null)
+            {
                 PhotonNetwork.room.SetCustomProperties(new ExitGames.Client.Photon.Hashtable { { "MM_RPCVID", 0 } });
+            }
         }
     }
 

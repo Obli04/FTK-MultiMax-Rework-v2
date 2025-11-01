@@ -4,10 +4,11 @@ using System;
 using System.Reflection;
 using System.Collections.Generic;
 using Newtonsoft.Json;
+using System.Collections;
 
 public class MultiMaxNetworkRPC : Photon.MonoBehaviour
 {
-    void Awake()
+    protected override void Awake()
     {
         DontDestroyOnLoad(gameObject);
         Debug.Log($"[MultiMax] RPC handler Awake, viewID={photonView?.viewID ?? 0}");

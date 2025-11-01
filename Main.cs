@@ -25,7 +25,7 @@ namespace FTK_MultiMax_Rework
             Debug.Log($"[{pluginName}]: {message}");
         }
 
-        public IEnumerator Start()
+        public void Start()
         {
             Log("Initializing version " + pluginVersion + "...");
 
@@ -33,61 +33,7 @@ namespace FTK_MultiMax_Rework
             ConfigHandler.InitializeMaxPlayers();
             PatchMethods();
             SetupPlayerCreationUI();
-
-            /*Log("Waiting for Photon room...");
-            while (!PhotonNetwork.inRoom)
-                yield return null;
-
-            // ✅ Aspetta che la room sia completamente caricata
-            yield return new WaitForSeconds(2f);
-
-            CreateRpcHandler();*/
-
-            // ✅ Verifica che l'handler esista
-            yield return new WaitForSeconds(0.5f);
-            var handler = GameObject.Find("MultiMaxRPCHandler");
-            if (handler != null)
-            {
-                var pv = handler.GetComponent<PhotonView>();
-                Log($"RPC handler verified: viewID={pv?.viewID ?? 0}");
-            }
-            else
-            {
-                Log("ERROR: RPC handler creation failed!");
-            }
-
             Log("Startup done");
-        }
-
-        private static void CreateRpcHandler()
-        {
-            const string HandlerName = "MultiMaxRPCHandler";
-            var existing = GameObject.Find(HandlerName);
-            if (existing != null)
-            {
-                Log("RPC handler already exists");
-                return;
-            }
-
-            var go = new GameObject(HandlerName);
-            var pv = go.AddComponent<PhotonView>();
-            pv.ownershipTransfer = OwnershipOption.Fixed;
-
-            // ✅ TUTTI allocano un viewID se sono MasterClient
-            if (PhotonNetwork.isMasterClient)
-            {
-                pv.viewID = PhotonNetwork.AllocateSceneViewID();
-                Log($"MasterClient allocated viewID={pv.viewID}");
-            }
-            else
-            {
-                Log("Client waiting for MasterClient to allocate viewID");
-            }
-
-            go.AddComponent<MultiMaxNetworkRPC>();
-            GameObject.DontDestroyOnLoad(go);
-
-            Log($"RPC handler created");
         }
         // Patch all methods with [PatchMethod(...)] attribute,
         // Inside of all classes with [PatchType(...)]
